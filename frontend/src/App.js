@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import LandingPage  from './pages/LandingPage';
-import LoginPage    from './pages/LoginPage';
-import SignupPage   from './pages/SignupPage';
-import HomePage     from './pages/HomePage';
+import { GoogleOAuthProvider } from '@react-oauth/google';
+import LandingPage from './pages/LandingPage';
+import LoginPage   from './pages/LoginPage';
+import SignupPage  from './pages/SignupPage';
+import HomePage    from './pages/HomePage';
+
+const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
 
 export default function App() {
   const [user, setUser] = useState(null);
 
-  // Restore session from localStorage on page reload
+  // Restore session on page reload
   useEffect(() => {
     const saved = localStorage.getItem('user');
     if (saved) setUser(JSON.parse(saved));
@@ -27,13 +30,16 @@ export default function App() {
   };
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/"       element={<LandingPage />} />
-        <Route path="/login"  element={!user ? <LoginPage  onLogin={handleLogin} />  : <Navigate to="/home" />} />
-        <Route path="/signup" element={!user ? <SignupPage onLogin={handleLogin} />  : <Navigate to="/home" />} />
-        <Route path="/home"   element={ user ? <HomePage   user={user} onLogout={handleLogout} /> : <Navigate to="/login" />} />
-      </Routes>
-    </BrowserRouter>
+    // GoogleOAuthProvider wraps the entire app so any page can use Google login
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/"       element={<LandingPage />} />
+          <Route path="/login"  element={!user ? <LoginPage  onLogin={handleLogin} /> : <Navigate to="/home" />} />
+          <Route path="/signup" element={!user ? <SignupPage onLogin={handleLogin} /> : <Navigate to="/home" />} />
+          <Route path="/home"   element={ user ? <HomePage   user={user} onLogout={handleLogout} /> : <Navigate to="/login" />} />
+        </Routes>
+      </BrowserRouter>
+    </GoogleOAuthProvider>
   );
 }
