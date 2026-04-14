@@ -11,7 +11,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         fields = ['email', 'first_name', 'last_name', 'password', 'role']
 
     def validate_role(self, value):
-        # ✅ SECURITY: Block admin self-registration.
+        # SECURITY: Block admin self-registration.
         # Admin accounts are created only via Django shell by the dev team.
         if value not in ['customer', 'seller']:
             raise serializers.ValidationError(

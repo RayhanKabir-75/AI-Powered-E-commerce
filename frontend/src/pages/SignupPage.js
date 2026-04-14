@@ -1,11 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { registerUser } from '../api/api';
+import API from '../api/api';
 import { GoogleIcon } from '../components/GoogleIcon';
 import './auth.css';
 
-// ✅ SECURITY: Admin is intentionally NOT in this list.
-// Admin accounts are created only via Django shell by the dev team.
+// ─────────────────────────────────────────────────────────────────────────────
+// PASTE YOUR GOOGLE CLIENT ID HERE — same value as in LoginPage.js
+// ─────────────────────────────────────────────────────────────────────────────
+//const GOOGLE_CLIENT_ID = '988540202332-ta0u4omgr7kutb8e9nlj19256fjnlbe1.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
+
 const ROLES = [
   { value: 'customer', icon: '🛍️', label: 'Customer', desc: 'Browse & buy products with AI-powered picks' },
   { value: 'seller',   icon: '🏪', label: 'Seller',   desc: 'List products & grow your business with AI tools' },
@@ -13,12 +18,30 @@ const ROLES = [
 
 export default function SignupPage({ onLogin }) {
   const navigate = useNavigate();
-  const [form,    setForm]    = useState({ firstName: '', lastName: '', email: '', password: '', role: 'customer', agree: false });
-  const [errors,  setErrors]  = useState({});
-  const [loading, setLoading] = useState(false);
-  const [apiErr,  setApiErr]  = useState('');
+  const [form, setForm] = useState({
+    firstName: '', lastName: '', email: '', password: '', role: 'customer', agree: false,
+  });
+  const [errors,   setErrors]   = useState({});
+  const [loading,  setLoading]  = useState(false);
+  const [apiErr,   setApiErr]   = useState('');
+  const [gLoading, setGLoading] = useState(false);
 
-  const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setErrors(e => ({ ...e, [k]: '' })); setApiErr(''); };
+  // ── Load Google Identity Services script ──────────────────────────────────
+  useEffect(() => {
+    if (document.getElementById('google-gsi-script')) return;
+    const script = document.createElement('script');
+    script.id    = 'google-gsi-script';
+    script.src   = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    document.body.appendChild(script);
+  }, []);
+
+  const set = (k, v) => {
+    setForm(f => ({ ...f, [k]: v }));
+    setErrors(e => ({ ...e, [k]: '' }));
+    setApiErr('');
+  };
 
   const validate = () => {
     const e = {};
@@ -32,6 +55,7 @@ export default function SignupPage({ onLogin }) {
     return e;
   };
 
+  // ── Email signup ──────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     const e = validate();
     if (Object.keys(e).length) { setErrors(e); return; }
@@ -54,48 +78,74 @@ export default function SignupPage({ onLogin }) {
     }
   };
 
-  // Google OAuth — wire up with react-oauth/google in production
+  // ── Google signup ─────────────────────────────────────────────────────────
   const handleGoogle = () => {
-    alert('Google OAuth: integrate react-oauth/google and pass the Google token to your backend for verification.');
+    if (!window.google) {
+      setApiErr('Google Sign-In is still loading. Please wait a moment and try again.');
+      return;
+    }
+
+    window.google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: async (response) => {
+        setGLoading(true);
+        setApiErr('');
+        try {
+          const res = await API.post('auth/google/', {
+            credential: response.credential,  // JWT ID token
+            role: form.role,                  // customer or seller
+          });
+          onLogin(res.data.user, res.data.token);
+          navigate('/home');
+        } catch (err) {
+          setApiErr(err.response?.data?.error || 'Google sign-up failed. Please try again.');
+        } finally {
+          setGLoading(false);
+        }
+      },
+    });
+
+    window.google.accounts.id.prompt((notification) => {
+      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+        window.google.accounts.id.renderButton(
+          document.getElementById('google-btn-container-signup'),
+          { theme: 'outline', size: 'large', width: 400 }
+        );
+      }
+    });
   };
 
   return (
     <div className="auth-layout page">
-      {/* Left branding panel */}
       <div className="auth-panel">
         <div className="auth-panel-bg" />
         <div className="auth-panel-content">
           <div className="auth-panel-logo"><div className="panel-dot" /> ShopAI</div>
           <h2 className="auth-panel-title">Join the<br /><em>future</em> of<br />shopping.</h2>
-          <p className="auth-panel-sub">Create an account and get instant access to AI-powered product discovery, smart recommendations, and more.</p>
+          <p className="auth-panel-sub">Create an account and get instant access to AI-powered product discovery.</p>
           <div style={{ marginTop: 40, display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {['✦  Personalised AI recommendations', '✦  AI-generated product insights', '✦  24/7 conversational assistant', '✦  NLP-powered review summaries'].map((f, i) => (
+            {['✦  Personalised AI recommendations', '✦  AI-generated product insights',
+              '✦  24/7 conversational assistant',   '✦  NLP-powered review summaries'].map((f, i) => (
               <div key={i} style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>{f}</div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Right form */}
       <div className="auth-form-side" style={{ overflowY: 'auto', padding: '40px 48px' }}>
         <div className="auth-form-box">
           <button className="auth-back" onClick={() => navigate('/')}>← Back to home</button>
           <h1 className="auth-heading">Create account</h1>
-          <p className="auth-subheading">Already have one? <a onClick={() => navigate('/login')}>Log in</a></p>
+          <p className="auth-subheading">
+            Already have one?{' '}
+            <button className="link-btn" onClick={() => navigate('/login')}>Log in</button>
+          </p>
 
-          {/* Google signup */}
-          <button className="btn-google" onClick={handleGoogle}>
-            <GoogleIcon />
-            Sign up with Google
-          </button>
-
-          <div className="divider">
-            <div className="divider-line" /><span className="divider-text">or use email</span><div className="divider-line" />
-          </div>
-
-          {/* Role selector — Customer & Seller ONLY */}
+          {/* Role selector — select BEFORE clicking Google so role is passed */}
           <div style={{ marginBottom: 16 }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 8 }}>I am joining as</label>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 8 }}>
+              I am joining as
+            </label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               {ROLES.map(({ value, icon, label, desc }) => (
                 <div key={value} onClick={() => set('role', value)} style={{ cursor: 'pointer' }}>
@@ -115,22 +165,38 @@ export default function SignupPage({ onLogin }) {
             </div>
           </div>
 
+          <button className="btn-google" onClick={handleGoogle} disabled={gLoading}>
+            {gLoading
+              ? <span className="spinner-row"><span className="spinner" style={{ borderTopColor: '#4285F4' }} /> Connecting...</span>
+              : <><GoogleIcon /> Sign up with Google</>}
+          </button>
+
+          {/* Hidden container GIS uses if One Tap is blocked */}
+          <div id="google-btn-container-signup" style={{ marginBottom: 8 }} />
+
+          <div className="divider">
+            <div className="divider-line" />
+            <span className="divider-text">or use email</span>
+            <div className="divider-line" />
+          </div>
+
           {apiErr && <div className="api-error">{apiErr}</div>}
 
-          {/* Name */}
           <div className="form-row" style={{ marginBottom: 16 }}>
             <div className="form-group" style={{ margin: 0 }}>
               <label>First name</label>
               <div className="input-wrap">
                 <span className="input-icon">👤</span>
-                <input type="text" placeholder="Jane" value={form.firstName} onChange={e => set('firstName', e.target.value)} />
+                <input type="text" placeholder="Jane"
+                  value={form.firstName} onChange={e => set('firstName', e.target.value)} />
               </div>
               {errors.firstName && <div className="form-error">{errors.firstName}</div>}
             </div>
             <div className="form-group" style={{ margin: 0 }}>
               <label>Last name</label>
               <div className="input-wrap">
-                <input type="text" placeholder="Smith" value={form.lastName} onChange={e => set('lastName', e.target.value)} className="no-icon" />
+                <input type="text" placeholder="Smith" className="no-icon"
+                  value={form.lastName} onChange={e => set('lastName', e.target.value)} />
               </div>
               {errors.lastName && <div className="form-error">{errors.lastName}</div>}
             </div>
@@ -140,7 +206,8 @@ export default function SignupPage({ onLogin }) {
             <label>Email address</label>
             <div className="input-wrap">
               <span className="input-icon">✉</span>
-              <input type="email" placeholder="you@example.com" value={form.email} onChange={e => set('email', e.target.value)} />
+              <input type="email" placeholder="you@example.com"
+                value={form.email} onChange={e => set('email', e.target.value)} />
             </div>
             {errors.email && <div className="form-error">{errors.email}</div>}
           </div>
@@ -149,22 +216,34 @@ export default function SignupPage({ onLogin }) {
             <label>Password <span style={{ color: 'var(--muted)', fontSize: 11 }}>(min. 8 characters)</span></label>
             <div className="input-wrap">
               <span className="input-icon">🔒</span>
-              <input type="password" placeholder="Create a strong password" value={form.password} onChange={e => set('password', e.target.value)} />
+              <input type="password" placeholder="Create a strong password"
+                value={form.password} onChange={e => set('password', e.target.value)} />
             </div>
             {errors.password && <div className="form-error">{errors.password}</div>}
           </div>
 
           <div className="checkbox-row">
-            <input type="checkbox" id="agree" checked={form.agree} onChange={e => set('agree', e.target.checked)} />
-            <label htmlFor="agree">I agree to the <a>Terms of Service</a> and <a>Privacy Policy</a></label>
+            <input type="checkbox" id="agree" checked={form.agree}
+              onChange={e => set('agree', e.target.checked)} />
+            <label htmlFor="agree">
+              I agree to the{' '}
+              <button className="link-btn" onClick={() => alert('Terms of Service — coming soon!')}>Terms of Service</button>
+              {' '}and{' '}
+              <button className="link-btn" onClick={() => alert('Privacy Policy — coming soon!')}>Privacy Policy</button>
+            </label>
           </div>
           {errors.agree && <div className="form-error" style={{ marginTop: -10, marginBottom: 12 }}>{errors.agree}</div>}
 
           <button className="btn-submit" onClick={handleSubmit} disabled={loading}>
-            {loading ? <span className="spinner-row"><span className="spinner" /> Creating account...</span> : 'Create account →'}
+            {loading
+              ? <span className="spinner-row"><span className="spinner" /> Creating account...</span>
+              : 'Create account →'}
           </button>
 
-          <p className="auth-switch">Already have an account? <a onClick={() => navigate('/login')}>Log in</a></p>
+          <p className="auth-switch">
+            Already have an account?{' '}
+            <button className="link-btn" onClick={() => navigate('/login')}>Log in</button>
+          </p>
         </div>
       </div>
     </div>

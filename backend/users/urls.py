@@ -6,4 +6,5 @@ urlpatterns = [
     path('login/',    views.login),
     path('logout/',   views.logout),
     path('profile/',  views.profile),
+    path('google/',   views.google_auth),   # ← Google OAuth endpoint
 ]

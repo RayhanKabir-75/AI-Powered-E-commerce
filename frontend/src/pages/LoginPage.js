@@ -1,27 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { loginUser } from '../api/api';
+import API from '../api/api';
 import { GoogleIcon } from '../components/GoogleIcon';
 import './auth.css';
 
-// ── Forgot Password Modal ────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// PASTE YOUR GOOGLE CLIENT ID HERE — just replace the string below
+// Get it from: console.cloud.google.com → APIs & Services → Credentials
+// ─────────────────────────────────────────────────────────────────────────────
+//const GOOGLE_CLIENT_ID = '988540202332-ta0u4omgr7kutb8e9nlj19256fjnlbe1.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
+
+// ── Forgot Password Modal ─────────────────────────────────────────────────────
 function ForgotPasswordModal({ onClose }) {
   const [email,   setEmail]   = useState('');
-  const [step,    setStep]    = useState('email');   // 'email' | 'sent'
+  const [step,    setStep]    = useState('email');
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState('');
 
   const handleSend = async () => {
-    if (!email) { setError('Please enter your email address.'); return; }
-    if (!/\S+@\S+\.\S+/.test(email)) { setError('Enter a valid email address.'); return; }
-
+    if (!email)                      { setError('Please enter your email address.'); return; }
+    if (!/\S+@\S+\.\S+/.test(email)) { setError('Enter a valid email address.');    return; }
     setLoading(true);
     setError('');
-
-    // Simulate sending — in production call your backend reset endpoint:
-    // await API.post('auth/password-reset/', { email })
     await new Promise(res => setTimeout(res, 1400));
-
     setLoading(false);
     setStep('sent');
   };
@@ -29,37 +32,26 @@ function ForgotPasswordModal({ onClose }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box" onClick={e => e.stopPropagation()}>
-
         {step === 'email' ? (
           <>
             <div className="modal-icon">🔑</div>
             <h3 className="modal-title">Forgot your password?</h3>
-            <p className="modal-sub">
-              Enter your account email and we'll send you a link to reset your password.
-            </p>
-
+            <p className="modal-sub">Enter your account email and we'll send you a reset link.</p>
             <div className="form-group" style={{ marginBottom: 8 }}>
               <label>Email address</label>
               <div className="input-wrap">
                 <span className="input-icon">✉</span>
-                <input
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
+                <input type="email" placeholder="you@example.com" value={email} autoFocus
                   onChange={e => { setEmail(e.target.value); setError(''); }}
-                  onKeyDown={e => e.key === 'Enter' && handleSend()}
-                  autoFocus
-                />
+                  onKeyDown={e => e.key === 'Enter' && handleSend()} />
               </div>
               {error && <div className="form-error">{error}</div>}
             </div>
-
             <button className="btn-submit" onClick={handleSend} disabled={loading}>
               {loading
                 ? <span className="spinner-row"><span className="spinner" /> Sending...</span>
                 : 'Send reset link'}
             </button>
-
             <button className="modal-cancel" onClick={onClose}>Cancel</button>
           </>
         ) : (
@@ -67,13 +59,11 @@ function ForgotPasswordModal({ onClose }) {
             <div className="modal-icon">📧</div>
             <h3 className="modal-title">Check your email</h3>
             <p className="modal-sub">
-              We've sent a password reset link to <strong>{email}</strong>.
-              Check your inbox and follow the instructions.
+              We sent a reset link to <strong>{email}</strong>. Check your inbox and follow the instructions.
             </p>
             <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 20, textAlign: 'center' }}>
-              Didn't receive it? Check your spam folder or{' '}
-              <a style={{ color: 'var(--gold)', cursor: 'pointer' }}
-                onClick={() => setStep('email')}>try again</a>.
+              Didn't receive it? Check spam or{' '}
+              <button className="link-btn" onClick={() => setStep('email')}>try again</button>.
             </p>
             <button className="btn-submit" onClick={onClose}>Back to login</button>
           </>
@@ -83,15 +73,27 @@ function ForgotPasswordModal({ onClose }) {
   );
 }
 
-
-// ── Login Page ───────────────────────────────────────────────────────────────
+// ── Login Page ────────────────────────────────────────────────────────────────
 export default function LoginPage({ onLogin }) {
   const navigate = useNavigate();
-  const [form,         setForm]         = useState({ email: '', password: '' });
-  const [errors,       setErrors]       = useState({});
-  const [loading,      setLoading]      = useState(false);
-  const [apiErr,       setApiErr]       = useState('');
-  const [forgotOpen,   setForgotOpen]   = useState(false);
+  const [form,       setForm]       = useState({ email: '', password: '' });
+  const [errors,     setErrors]     = useState({});
+  const [loading,    setLoading]    = useState(false);
+  const [apiErr,     setApiErr]     = useState('');
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [gLoading,   setGLoading]   = useState(false);
+
+  // ── Load Google Identity Services script ──────────────────────────────────
+  useEffect(() => {
+    // Only load if not already loaded
+    if (document.getElementById('google-gsi-script')) return;
+    const script = document.createElement('script');
+    script.id  = 'google-gsi-script';
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    document.body.appendChild(script);
+  }, []);
 
   const set = (k, v) => {
     setForm(f => ({ ...f, [k]: v }));
@@ -107,6 +109,7 @@ export default function LoginPage({ onLogin }) {
     return e;
   };
 
+  // ── Email login ───────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     const e = validate();
     if (Object.keys(e).length) { setErrors(e); return; }
@@ -122,14 +125,52 @@ export default function LoginPage({ onLogin }) {
     }
   };
 
+  // ── Google login ──────────────────────────────────────────────────────────
+  // Uses Google Identity Services (GIS) — no package needed, loads via script tag.
+  // When user picks their Google account, Google calls this callback with a
+  // credential (JWT ID token). We send that to our Django backend to verify.
   const handleGoogle = () => {
-    alert('Google OAuth: integrate react-oauth/google in production.');
+    if (!window.google) {
+      setApiErr('Google Sign-In is still loading. Please wait a moment and try again.');
+      return;
+    }
+
+    window.google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: async (response) => {
+        // response.credential is a JWT ID token from Google
+        setGLoading(true);
+        setApiErr('');
+        try {
+          const res = await API.post('auth/google/', {
+            credential: response.credential,
+            role: 'customer',
+          });
+          onLogin(res.data.user, res.data.token);
+          navigate('/home');
+        } catch (err) {
+          setApiErr(err.response?.data?.error || 'Google sign-in failed. Please try again.');
+        } finally {
+          setGLoading(false);
+        }
+      },
+    });
+
+    // Open the One Tap / account picker popup
+    window.google.accounts.id.prompt((notification) => {
+      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+        // One Tap was blocked — fall back to the full popup flow
+        window.google.accounts.id.renderButton(
+          document.getElementById('google-btn-container-login'),
+          { theme: 'outline', size: 'large', width: 400 }
+        );
+      }
+    });
   };
 
   return (
     <>
       <div className="auth-layout page">
-        {/* Left branding panel */}
         <div className="auth-panel">
           <div className="auth-panel-bg" />
           <div className="auth-panel-content">
@@ -149,16 +190,24 @@ export default function LoginPage({ onLogin }) {
           </div>
         </div>
 
-        {/* Right form */}
         <div className="auth-form-side">
           <div className="auth-form-box">
             <button className="auth-back" onClick={() => navigate('/')}>← Back to home</button>
             <h1 className="auth-heading">Log in</h1>
-            <p className="auth-subheading">Don't have an account? <a onClick={() => navigate('/signup')}>Sign up</a></p>
+            <p className="auth-subheading">
+              Don't have an account?{' '}
+              <button className="link-btn" onClick={() => navigate('/signup')}>Sign up</button>
+            </p>
 
-            <button className="btn-google" onClick={handleGoogle}>
-              <GoogleIcon /> Continue with Google
+            {/* Google button — custom styled, triggers GIS popup */}
+            <button className="btn-google" onClick={handleGoogle} disabled={gLoading}>
+              {gLoading
+                ? <span className="spinner-row"><span className="spinner" style={{ borderTopColor: '#4285F4' }} /> Connecting...</span>
+                : <><GoogleIcon /> Continue with Google</>}
             </button>
+
+            {/* Hidden container GIS uses if One Tap is blocked */}
+            <div id="google-btn-container-login" style={{ marginBottom: 8 }} />
 
             <div className="divider">
               <div className="divider-line" />
@@ -189,14 +238,10 @@ export default function LoginPage({ onLogin }) {
               {errors.password && <div className="form-error">{errors.password}</div>}
             </div>
 
-            {/* Forgot password — now functional */}
             <div style={{ textAlign: 'right', marginBottom: 20 }}>
-              <a
-                style={{ fontSize: 13, color: 'var(--gold)', cursor: 'pointer' }}
-                onClick={() => setForgotOpen(true)}
-              >
+              <button className="link-btn" onClick={() => setForgotOpen(true)}>
                 Forgot password?
-              </a>
+              </button>
             </div>
 
             <button className="btn-submit" onClick={handleSubmit} disabled={loading}>
@@ -205,12 +250,14 @@ export default function LoginPage({ onLogin }) {
                 : 'Log in'}
             </button>
 
-            <p className="auth-switch">New here? <a onClick={() => navigate('/signup')}>Create an account</a></p>
+            <p className="auth-switch">
+              New here?{' '}
+              <button className="link-btn" onClick={() => navigate('/signup')}>Create an account</button>
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Forgot Password Modal — rendered outside layout so it overlays everything */}
       {forgotOpen && <ForgotPasswordModal onClose={() => setForgotOpen(false)} />}
     </>
   );
