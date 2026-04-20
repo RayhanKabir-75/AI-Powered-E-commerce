@@ -3,13 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { loginUser } from '../api/api';
 import API from '../api/api';
 import { GoogleIcon } from '../components/GoogleIcon';
+import { forgotPassword } from '../api/api';
 import './auth.css';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PASTE YOUR GOOGLE CLIENT ID HERE — just replace the string below
-// Get it from: console.cloud.google.com → APIs & Services → Credentials
-// ─────────────────────────────────────────────────────────────────────────────
-//const GOOGLE_CLIENT_ID = '988540202332-ta0u4omgr7kutb8e9nlj19256fjnlbe1.apps.googleusercontent.com';
 const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
 
 // ── Forgot Password Modal ─────────────────────────────────────────────────────
@@ -19,15 +15,31 @@ function ForgotPasswordModal({ onClose }) {
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState('');
 
-  const handleSend = async () => {
-    if (!email)                      { setError('Please enter your email address.'); return; }
-    if (!/\S+@\S+\.\S+/.test(email)) { setError('Enter a valid email address.');    return; }
-    setLoading(true);
-    setError('');
-    await new Promise(res => setTimeout(res, 1400));
-    setLoading(false);
+const handleSend = async () => {
+  if (!email) {
+    setError('Please enter your email address.');
+    return;
+  }
+
+  if (!/\S+@\S+\.\S+/.test(email)) {
+    setError('Enter a valid email address.');
+    return;
+  }
+
+  setLoading(true);
+  setError('');
+
+  try {
+    await forgotPassword({ email }); // 🔥 REAL API CALL
     setStep('sent');
-  };
+  } catch (err) {
+    setError(
+      err.response?.data?.error || 'Failed to send reset email. Try again.'
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="modal-overlay" onClick={onClose}>

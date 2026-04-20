@@ -8,6 +8,17 @@ from rest_framework.authtoken.models import Token
 from rest_framework import status
 from .models import User
 from .serializers import RegisterSerializer, LoginSerializer, UserSerializer
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
+from django.contrib.auth import get_user_model
+from django.core.mail import send_mail
+from django.conf import settings
+from django.utils.http import urlsafe_base64_decode
+from django.utils.encoding import force_str
+
+
+
 
 
 
@@ -150,6 +161,56 @@ def logout(request):
             pass
     return Response({'message': 'Logged out successfully.'})
 
+
+# ─── Forgot Password ──────────────────────────────────────────────────────────
+
+User = get_user_model()
+token_generator = PasswordResetTokenGenerator()
+
+@api_view(['POST'])
+def forgot_password(request):
+    email = request.data.get('email')
+
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        return Response({"error": "User not found"}, status=404)
+
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    token = token_generator.make_token(user)
+
+    reset_link = f"{settings.FRONTEND_URL}/reset-password/{uid}/{token}/"
+    print(f"Password reset link: {reset_link}")
+
+    send_mail(
+        subject="Password Reset",
+        message=f"Click the link to reset your password:\n{reset_link}",
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[email],
+    )
+
+    return Response({"message": "Reset link sent"})
+
+
+# ─── Reset Password ──────────────────────────────────────────────────────────
+
+@api_view(['POST'])
+def reset_password(request, uidb64, token):
+    password = request.data.get('password')
+
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(pk=uid)
+    except:
+        return Response({"error": "Invalid link"}, status=400)
+
+    if not token_generator.check_token(user, token):
+        return Response({"error": "Invalid or expired token"}, status=400)
+
+    user.set_password(password)
+    user.save()
+
+    return Response({"message": "Password reset successful"})
 
 # ── Profile ───────────────────────────────────────────────────────────────────
 

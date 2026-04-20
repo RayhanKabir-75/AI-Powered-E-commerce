@@ -5,7 +5,7 @@ import LoginPage   from './pages/LoginPage';
 import SignupPage  from './pages/SignupPage';
 import HomePage    from './pages/HomePage';
 import { logoutUser } from './api/api';
-
+import ResetPasswordPage from './pages/ResetPasswordPage';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -28,20 +28,19 @@ export default function App() {
     setUser(userData);
   };
 
+  const handleLogout = async () => {
+    try {
+      await logoutUser();
+    } catch (err) {
+      console.warn("Logout failed, clearing anyway");
+    } finally {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setUser(null);
+    }
+  };
 
-const handleLogout = async () => {
-  try {
-    await logoutUser();
-  } catch (err) {
-    console.warn("Logout failed, clearing anyway");
-  } finally {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setUser(null);
-  }
-};
-
-  if (loading) return <div>Loading...</div>; // ✅ prevents redirect bug
+  if (loading) return <div>Loading...</div>;
 
   return (
     <BrowserRouter>
@@ -71,6 +70,12 @@ const handleLogout = async () => {
               <Navigate to="/login" />
             )
           }
+        />
+
+        {/* ✅ FIXED LOCATION */}
+        <Route
+          path="/reset-password/:uid/:token"
+          element={<ResetPasswordPage />}
         />
       </Routes>
     </BrowserRouter>
