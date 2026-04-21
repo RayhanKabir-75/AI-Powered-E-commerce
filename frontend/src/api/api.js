@@ -27,6 +27,16 @@ export const getProduct          = (id)     => API.get(`products/${id}/`);
 export const createProduct       = (data)   => API.post('products/', data);
 export const generateDescription = (data)   => API.post('products/generate-description/', data);
 
+// ── Reviews ───────────────────────────────────────────
+export const getReviews = (productId) =>
+  API.get(`products/${productId}/reviews/`);
+
+export const getReviewSummary = (productId) =>
+  API.get(`products/${productId}/reviews/summary/`);
+
+export const submitReview = (productId, data) =>
+  API.post(`products/${productId}/reviews/`, data);
+
 // ── Chatbot ───────────────────────────────────────────
 export const chatbotSend = (data) => API.post('chatbot/', data);
 
