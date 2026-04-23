@@ -61,14 +61,14 @@ useEffect(() => {
         <Route
           path="/login"
           element={
-            !user ? <LoginPage onLogin={handleLogin} /> : <Navigate to="/home" />
+            !user ? <LoginPage onLogin={handleLogin} /> : user.role === 'seller' ? <Navigate to="/seller" /> : <Navigate to="/home" />
           }
         />
 
         <Route
           path="/signup"
           element={
-            !user ? <SignupPage onLogin={handleLogin} /> : <Navigate to="/home" />
+            !user ? <SignupPage onLogin={handleLogin} /> : user.role === 'seller' ? <Navigate to="/seller" /> : <Navigate to="/home" />
           }
         />
 
@@ -76,7 +76,7 @@ useEffect(() => {
           path="/home"
           element={
             user ? (
-              <HomePage user={user} onLogout={handleLogout} />
+              user.role === 'seller' ? <Navigate to="/seller" /> : <HomePage user={user} onLogout={handleLogout} />
             ) : (
               <Navigate to="/login" />
             )
@@ -87,7 +87,7 @@ useEffect(() => {
           path="/seller"
           element={
             user ? (
-              <SellerDashboard user={user} onBack={() => window.history.back()} />
+              user.role === 'seller' ? <SellerDashboard user={user} onLogout={handleLogout} /> : <Navigate to="/home" />
             ) : (
               <Navigate to="/login" />
             )

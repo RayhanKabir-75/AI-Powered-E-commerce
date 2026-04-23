@@ -177,3 +177,24 @@ def cancel_order(request, order_id):
         order.save()
 
     return Response({'message': 'Order cancelled successfully.', 'order': OrderSerializer(order).data})
+
+
+# ── List orders containing seller's products ──────────────────────────────────
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def seller_orders(request):
+    """
+    GET /api/orders/seller/
+    Returns all orders that contain at least one product belonging to the seller.
+    """
+    if request.user.role != 'seller':
+        return Response({'error': 'Only sellers can access this endpoint.'}, status=403)
+
+    # Find orders that have items belonging to this seller's products
+    orders = Order.objects.filter(
+        items__product__seller=request.user
+    ).prefetch_related('items__product').order_by('-created_at').distinct()
+
+    serializer = OrderSerializer(orders, many=True)
+    return Response(serializer.data)

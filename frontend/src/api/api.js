@@ -24,6 +24,10 @@ function getCookie(name) {
 
 // Automatically attach CSRF token to unsafe requests
 API.interceptors.request.use(config => {
+  // Attach auth token if available
+  const token = localStorage.getItem('token');
+  if (token) config.headers['Authorization'] = `Token ${token}`;
+
   const csrfToken = getCookie('csrftoken');
   if (csrfToken && ['post', 'patch', 'delete'].includes(config.method)) {
     config.headers['X-CSRFToken'] = csrfToken;
@@ -46,8 +50,8 @@ export const googleAuth = (data) => API.post('auth/google/', data);
 // ── Products ──────────────────────────────────────────
 export const getProducts = (params) => API.get('products/', { params });
 export const getProduct = (id) => API.get(`products/${id}/`);
-export const createProduct = (data) => API.post('products/', data);
-export const updateProduct = (id, data) => API.patch(`products/${id}/`, data);
+export const createProduct = (data, config) => API.post('products/', data, config);
+export const updateProduct = (id, data, config) => API.patch(`products/${id}/`, data, config);
 export const deleteProduct = (id) => API.delete(`products/${id}/`);
 export const generateDescription = (data) => API.post('products/generate-description/', data);
 

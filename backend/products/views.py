@@ -22,6 +22,9 @@ class ProductViewSet(viewsets.ModelViewSet):
         if category: qs = qs.filter(category__name__icontains=category)
         if min_p:    qs = qs.filter(price__gte=min_p)
         if max_p:    qs = qs.filter(price__lte=max_p)
+        # Sellers only see their own products
+        if self.request.user.is_authenticated and self.request.user.role == 'seller':
+            qs = qs.filter(seller=self.request.user)
         return qs
 
     def get_permissions(self):
@@ -31,6 +34,20 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(seller=self.request.user)
+
+    def perform_update(self, serializer):
+        # Only the seller who owns the product can update it
+        if self.get_object().seller != self.request.user:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You can only edit your own products.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        # Only the seller who owns the product can delete it
+        if instance.seller != self.request.user:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You can only delete your own products.")
+        instance.delete()
 
 class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
     queryset         = Category.objects.all()
