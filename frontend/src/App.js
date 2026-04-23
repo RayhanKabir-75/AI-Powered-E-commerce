@@ -4,6 +4,7 @@ import LandingPage from './pages/LandingPage';
 import LoginPage   from './pages/LoginPage';
 import SignupPage  from './pages/SignupPage';
 import HomePage    from './pages/HomePage';
+import SellerDashboard from './pages/SellerDashboard';
 import { logoutUser } from './api/api';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 
@@ -82,7 +83,17 @@ useEffect(() => {
           }
         />
 
-        {/* ✅ FIXED LOCATION */}
+        <Route
+          path="/seller"
+          element={
+            user ? (
+              <SellerDashboard user={user} onBack={() => window.history.back()} />
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
         <Route
           path="/reset-password/:uid/:token"
           element={<ResetPasswordPage />}
