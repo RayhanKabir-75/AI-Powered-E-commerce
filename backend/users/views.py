@@ -16,6 +16,13 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import force_str
+from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth import logout as django_logout
+from django.http import JsonResponse
+from django.views.decorators.csrf import ensure_csrf_cookie
+
+
+
 
 
 
@@ -152,14 +159,13 @@ def google_auth(request):
 # ── Logout ────────────────────────────────────────────────────────────────────
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
 def logout(request):
-    if request.user.is_authenticated:
-        try:
-            request.user.auth_token.delete()
-        except:
-            pass
-    return Response({'message': 'Logged out successfully.'})
+    django_logout(request)
+    return Response({"message": "Logged out successfully"})
+
+@ensure_csrf_cookie
+def csrf(request):
+    return JsonResponse({"message": "CSRF cookie set"})
 
 
 # ─── Forgot Password ──────────────────────────────────────────────────────────

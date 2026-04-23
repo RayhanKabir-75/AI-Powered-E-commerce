@@ -28,17 +28,27 @@ export default function App() {
     setUser(userData);
   };
 
-  const handleLogout = async () => {
-    try {
-      await logoutUser();
-    } catch (err) {
-      console.warn("Logout failed, clearing anyway");
-    } finally {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      setUser(null);
-    }
-  };
+const handleLogout = async () => {
+  try {
+    // Call the API to delete the token on the server
+    await logoutUser(); 
+    console.log("Logged out from server successfully");
+  } catch (err) {
+    // If something fails, still clear local data
+    console.warn("Logout failed on server, clearing anyway", err);
+  } finally {
+    // Clear local storage and React state
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null);
+  }
+};
+
+useEffect(() => {
+  fetch('http://localhost:8000/api/auth/csrf/', {
+    credentials: 'include',
+  });
+}, []);
 
   if (loading) return <div>Loading...</div>;
 
