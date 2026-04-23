@@ -129,7 +129,7 @@ export default function LoginPage({ onLogin }) {
     try {
       const res = await loginUser({ email: form.email, password: form.password });
       onLogin(res.data.user, res.data.token);
-      navigate('/home');
+      navigate(res.data.user.role === 'seller' ? '/seller' : '/home');
     } catch (err) {
       setApiErr(err.response?.data?.non_field_errors?.[0] || 'Invalid email or password.');
     } finally {
@@ -159,7 +159,7 @@ export default function LoginPage({ onLogin }) {
             role: 'customer',
           });
           onLogin(res.data.user, res.data.token);
-          navigate('/home');
+          navigate(res.data.user.role === 'seller' ? '/seller' : '/home');
         } catch (err) {
           setApiErr(err.response?.data?.error || 'Google sign-in failed. Please try again.');
         } finally {

@@ -1,47 +1,155 @@
-import React, { useState, useEffect } from 'react';
-import { createProduct, getProducts } from '../api/api';
+import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { createProduct, getProducts, updateProduct, deleteProduct, updateOrderStatus, generateDescription } from '../api/api';
+import API from '../api/api';
+import './auth.css';
 
-const CATEGORIES = ['Electronics', 'Accessories', 'Footwear', 'Appliances', 'Sports', 'Home', 'Bags', 'Clothing', 'Other'];
-
-const EMPTY_FORM = {
-  name: '',
-  price: '',
-  category: '',
-  stock: '',
-  description: '',
-  image: '',
+const CATEGORY_EMOJIS = {
+  Electronics: '🎧', Accessories: '👜', Footwear: '👟',
+  Appliances: '☕', Sports: '🧘', Home: '💡', Bags: '🎒',
+  Clothing: '👕', Other: '📦',
 };
 
-export default function SellerDashboard({ user, onBack }) {
-  const [products, setProducts]     = useState([]);
-  const [form, setForm]             = useState(EMPTY_FORM);
-  const [loading, setLoading]       = useState(false);
-  const [fetching, setFetching]     = useState(true);
-  const [error, setError]           = useState('');
-  const [success, setSuccess]       = useState('');
-  const [showForm, setShowForm]     = useState(false);
-  const [deleteId, setDeleteId]     = useState(null);
-  const [editProduct, setEditProduct] = useState(null);
+const STATUS_COLORS = {
+  pending:   { bg: 'rgba(201,149,42,0.12)',  color: '#C9952A' },
+  confirmed: { bg: 'rgba(66,133,244,0.12)',  color: '#4285F4' },
+  shipped:   { bg: 'rgba(139,94,60,0.12)',   color: '#8B5E3C' },
+  delivered: { bg: 'rgba(39,174,96,0.12)',   color: '#27AE60' },
+  cancelled: { bg: 'rgba(192,57,43,0.12)',   color: '#C0392B' },
+};
 
-  useEffect(() => { fetchProducts(); }, []);
+const EMPTY_FORM = {
+  name: '', price: '', category: '', stock: '', description: '', image: '', imageFile: null,
+};
+
+const hour     = new Date().getHours();
+const greeting = hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
+
+export default function SellerDashboard({ user, onLogout }) {
+  const navigate = useNavigate();
+  const menuRef  = useRef(null);
+
+  // ── State ────────────────────────────────────────────────────────────────
+  const [tab,          setTab]          = useState('products'); // 'products' | 'orders'
+  const [products,     setProducts]     = useState([]);
+  const [orders,       setOrders]       = useState([]);
+  const [categories,   setCategories]   = useState([]);
+  const [form,         setForm]         = useState(EMPTY_FORM);
+  const [editingId,    setEditingId]    = useState(null);
+  const [showForm,     setShowForm]     = useState(false);
+  const [loading,      setLoading]      = useState(false);
+  const [fetching,     setFetching]     = useState(true);
+  const [aiLoading,    setAiLoading]    = useState(false);
+  const [error,        setError]        = useState('');
+  const [success,      setSuccess]      = useState('');
+  const [deleteId,     setDeleteId]     = useState(null);
+  const [menuOpen,     setMenuOpen]     = useState(false);
+  const [currentUser,  setCurrentUser]  = useState(user);
+  const [aiFeatures,   setAiFeatures]   = useState('');
+
+  const firstName = currentUser.first_name || currentUser.email.split('@')[0];
+  const initials  = currentUser.first_name
+    ? (currentUser.first_name[0] + (currentUser.last_name?.[0] || '')).toUpperCase()
+    : currentUser.email.slice(0, 2).toUpperCase();
+
+  // ── Close dropdown on outside click ──────────────────────────────────────
+  useEffect(() => {
+    const handler = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  useEffect(() => { fetchAll(); }, []);
+
+  const fetchAll = () => {
+    fetchProducts();
+    fetchOrders();
+    fetchCategories();
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const res = await API.get('products/categories/');
+      setCategories(res.data.results ?? res.data);
+    } catch { console.error('Failed to load categories'); }
+  };
 
   const fetchProducts = async () => {
     setFetching(true);
     try {
       const res = await getProducts();
       setProducts(res.data.results ?? res.data);
-    } catch {
-      setError('Failed to load products.');
-    } finally {
-      setFetching(false);
-    }
+    } catch { setError('Failed to load products.'); }
+    finally { setFetching(false); }
   };
 
+  const fetchOrders = async () => {
+    try {
+      const res = await API.get('orders/seller/');
+      setOrders(res.data);
+    } catch { console.error('Failed to load orders'); }
+  };
+
+  // ── Form helpers ──────────────────────────────────────────────────────────
   const handleChange = (e) => {
     setForm(f => ({ ...f, [e.target.name]: e.target.value }));
     setError('');
   };
 
+  const openAddForm = () => {
+    setForm(EMPTY_FORM);
+    setEditingId(null);
+    setAiFeatures('');
+    setShowForm(true);
+    setError('');
+  };
+
+  const openEditForm = (p) => {
+    setForm({
+      name:        p.name,
+      price:       p.price,
+      category:    p.category,
+      stock:       p.stock,
+      description: p.description || '',
+      image:       p.image || '',
+    });
+    setEditingId(p.id);
+    setAiFeatures('');
+    setShowForm(true);
+    setError('');
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+    setError('');
+  };
+
+  // ── AI Description Generator ──────────────────────────────────────────────
+  const handleGenerateDescription = async () => {
+    if (!form.name) { setError('Enter a product name first.'); return; }
+    setAiLoading(true);
+    setError('');
+    try {
+      const catName = categories.find(c => String(c.id) === String(form.category))?.name || '';
+      const res = await generateDescription({
+        name:     form.name,
+        category: catName,
+        price:    form.price,
+        features: aiFeatures,
+      });
+      setForm(f => ({ ...f, description: res.data.description }));
+    } catch {
+      setError('AI description failed. Check your OpenAI key.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  // ── Submit product (add or edit) ──────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.name || !form.price || !form.category) {
@@ -51,530 +159,445 @@ export default function SellerDashboard({ user, onBack }) {
     setLoading(true);
     setError('');
     try {
-      await createProduct({
-        name: form.name,
-        price: parseFloat(form.price),
-        category: form.category,
-        stock: parseInt(form.stock) || 0,
-        description: form.description,
-        image: form.image,
-      });
-      setSuccess('Product added successfully!');
-      setForm(EMPTY_FORM);
-      setShowForm(false);
+      const payload = new FormData();
+      payload.append('name',        form.name);
+      payload.append('price',       parseFloat(form.price));
+      payload.append('category',    parseInt(form.category));
+      payload.append('stock',       parseInt(form.stock) || 0);
+      payload.append('description', form.description);
+      // Only append image if a file was selected
+      if (form.imageFile) payload.append('image', form.imageFile);
+      if (editingId) {
+        await updateProduct(editingId, payload, { headers: { 'Content-Type': 'multipart/form-data' } });
+        setSuccess('Product updated!');
+      } else {
+        await createProduct(payload, { headers: { 'Content-Type': 'multipart/form-data' } });
+        setSuccess('Product added!');
+      }
+      closeForm();
       fetchProducts();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to add product. Please try again.');
+      setError(err.response?.data?.detail || JSON.stringify(err.response?.data) || 'Failed to save product.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDelete = (id) => setDeleteId(id);
-  const confirmDelete = () => {
-    setProducts(p => p.filter(x => x.id !== deleteId));
-    setDeleteId(null);
+  // ── Delete product ────────────────────────────────────────────────────────
+  const confirmDelete = async () => {
+    try {
+      await deleteProduct(deleteId);
+      setProducts(p => p.filter(x => x.id !== deleteId));
+      setDeleteId(null);
+      setSuccess('Product deleted.');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch {
+      setError('Failed to delete product.');
+      setDeleteId(null);
+    }
   };
 
-  const firstName = user?.first_name || user?.email?.split('@')[0] || 'Seller';
-  const totalRevenue = products.reduce((sum, p) => sum + (parseFloat(p.price) || 0), 0);
+  // ── Update order status ───────────────────────────────────────────────────
+  const handleStatusChange = async (orderId, newStatus) => {
+    try {
+      await updateOrderStatus(orderId, newStatus);
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+      setSuccess(`Order #${orderId} marked as ${newStatus}.`);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch {
+      setError('Failed to update order status.');
+    }
+  };
+
+  const handleLogout = async () => {
+    try { await onLogout(); } catch (_) {}
+    navigate('/');
+  };
+
+  // ── Stats ─────────────────────────────────────────────────────────────────
+  const totalValue    = products.reduce((s, p) => s + (parseFloat(p.price) * (parseInt(p.stock) || 0)), 0);
+  const lowStock      = products.filter(p => parseInt(p.stock) < 5).length;
+  const pendingOrders = orders.filter(o => o.status === 'pending').length;
+
+  const getEmoji = (p) => CATEGORY_EMOJIS[p.category_name] || '📦';
+
+  const menuItems = [
+    { icon: '➕', label: 'Add New Product', action: () => { openAddForm(); setMenuOpen(false); } },
+    { icon: '📦', label: 'My Products',     action: () => { setTab('products'); setMenuOpen(false); } },
+    { icon: '🧾', label: 'Incoming Orders', action: () => { setTab('orders'); setMenuOpen(false); } },
+    { icon: '🚪', label: 'Log out',         action: handleLogout, danger: true },
+  ];
 
   return (
-    <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&display=swap');
+    <div className="home page">
 
-        .sd-root {
-          min-height: 100vh;
-          background: #0a0a0f;
-          color: #e8e6f0;
-          font-family: 'DM Mono', monospace;
-        }
+      {/* ── Sticky Nav ───────────────────────────────────────────────────── */}
+      <nav className="home-nav">
+        <div className="nav-logo" style={{
+          fontFamily: "'Playfair Display', serif", fontSize: 20,
+          fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <div style={{ width: 7, height: 7, background: 'var(--gold)', borderRadius: '50%' }} />
+          ShopAI
+        </div>
 
-        /* ── Header ── */
-        .sd-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 20px 36px;
-          border-bottom: 1px solid #1e1e2e;
-          background: #0d0d16;
-          position: sticky;
-          top: 0;
-          z-index: 100;
-        }
-        .sd-logo {
-          font-family: 'Syne', sans-serif;
-          font-size: 20px;
-          font-weight: 800;
-          letter-spacing: -0.5px;
-          color: #fff;
-        }
-        .sd-logo span { color: #a78bfa; }
-        .sd-header-right { display: flex; align-items: center; gap: 12px; }
-        .sd-avatar {
-          width: 36px; height: 36px;
-          border-radius: 50%;
-          background: linear-gradient(135deg, #7c3aed, #a78bfa);
-          display: flex; align-items: center; justify-content: center;
-          font-family: 'Syne', sans-serif;
-          font-weight: 700; font-size: 13px; color: #fff;
-        }
-        .sd-username {
-          font-size: 13px;
-          color: #9ca3af;
-        }
-        .sd-back-btn {
-          background: none;
-          border: 1px solid #2d2d3f;
-          color: #9ca3af;
-          padding: 6px 14px;
-          border-radius: 6px;
-          font-family: 'DM Mono', monospace;
-          font-size: 12px;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-        .sd-back-btn:hover { border-color: #a78bfa; color: #a78bfa; }
+        <div className="home-nav-right">
+          <span className="role-badge seller">🏪 seller</span>
 
-        /* ── Body ── */
-        .sd-body { max-width: 1100px; margin: 0 auto; padding: 40px 24px; }
-
-        /* ── Page title ── */
-        .sd-title {
-          font-family: 'Syne', sans-serif;
-          font-size: 32px;
-          font-weight: 800;
-          color: #fff;
-          margin-bottom: 4px;
-        }
-        .sd-subtitle { font-size: 13px; color: #6b7280; margin-bottom: 32px; }
-
-        /* ── Stats ── */
-        .sd-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 36px; }
-        .sd-stat {
-          background: #111120;
-          border: 1px solid #1e1e2e;
-          border-radius: 12px;
-          padding: 20px 24px;
-        }
-        .sd-stat-label { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-        .sd-stat-value {
-          font-family: 'Syne', sans-serif;
-          font-size: 28px;
-          font-weight: 700;
-          color: #fff;
-        }
-        .sd-stat-value.purple { color: #a78bfa; }
-
-        /* ── Toolbar ── */
-        .sd-toolbar {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 20px;
-        }
-        .sd-section-title {
-          font-family: 'Syne', sans-serif;
-          font-size: 16px;
-          font-weight: 700;
-          color: #fff;
-        }
-        .sd-add-btn {
-          background: #7c3aed;
-          color: #fff;
-          border: none;
-          padding: 10px 20px;
-          border-radius: 8px;
-          font-family: 'DM Mono', monospace;
-          font-size: 13px;
-          cursor: pointer;
-          transition: background 0.2s;
-          display: flex; align-items: center; gap: 8px;
-        }
-        .sd-add-btn:hover { background: #6d28d9; }
-
-        /* ── Toast ── */
-        .sd-toast {
-          padding: 12px 18px;
-          border-radius: 8px;
-          font-size: 13px;
-          margin-bottom: 20px;
-          animation: fadeIn 0.3s ease;
-        }
-        .sd-toast.success { background: #052e16; border: 1px solid #166534; color: #4ade80; }
-        .sd-toast.error   { background: #1c0a0a; border: 1px solid #7f1d1d; color: #f87171; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* ── Form ── */
-        .sd-form-card {
-          background: #111120;
-          border: 1px solid #2d2d3f;
-          border-radius: 14px;
-          padding: 28px;
-          margin-bottom: 28px;
-          animation: fadeIn 0.25s ease;
-        }
-        .sd-form-title {
-          font-family: 'Syne', sans-serif;
-          font-size: 16px;
-          font-weight: 700;
-          color: #fff;
-          margin-bottom: 20px;
-        }
-        .sd-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-        .sd-form-full { grid-column: 1 / -1; }
-        .sd-field { display: flex; flex-direction: column; gap: 6px; }
-        .sd-label { font-size: 11px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.8px; }
-        .sd-input, .sd-select, .sd-textarea {
-          background: #0d0d16;
-          border: 1px solid #2d2d3f;
-          color: #e8e6f0;
-          padding: 10px 14px;
-          border-radius: 8px;
-          font-family: 'DM Mono', monospace;
-          font-size: 13px;
-          outline: none;
-          transition: border-color 0.2s;
-          width: 100%;
-          box-sizing: border-box;
-        }
-        .sd-input:focus, .sd-select:focus, .sd-textarea:focus { border-color: #7c3aed; }
-        .sd-select option { background: #0d0d16; }
-        .sd-textarea { resize: vertical; min-height: 80px; }
-        .sd-form-actions { display: flex; gap: 12px; margin-top: 20px; justify-content: flex-end; }
-        .sd-cancel-btn {
-          background: none;
-          border: 1px solid #2d2d3f;
-          color: #9ca3af;
-          padding: 10px 20px;
-          border-radius: 8px;
-          font-family: 'DM Mono', monospace;
-          font-size: 13px;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-        .sd-cancel-btn:hover { border-color: #6b7280; color: #e8e6f0; }
-        .sd-submit-btn {
-          background: #7c3aed;
-          color: #fff;
-          border: none;
-          padding: 10px 24px;
-          border-radius: 8px;
-          font-family: 'DM Mono', monospace;
-          font-size: 13px;
-          cursor: pointer;
-          transition: background 0.2s;
-        }
-        .sd-submit-btn:hover:not(:disabled) { background: #6d28d9; }
-        .sd-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        /* ── Table ── */
-        .sd-table-wrap {
-          background: #111120;
-          border: 1px solid #1e1e2e;
-          border-radius: 14px;
-          overflow: hidden;
-        }
-        .sd-table { width: 100%; border-collapse: collapse; }
-        .sd-table th {
-          text-align: left;
-          font-size: 11px;
-          color: #6b7280;
-          text-transform: uppercase;
-          letter-spacing: 0.8px;
-          padding: 14px 20px;
-          border-bottom: 1px solid #1e1e2e;
-          background: #0d0d16;
-          font-weight: 400;
-        }
-        .sd-table td {
-          padding: 16px 20px;
-          font-size: 13px;
-          border-bottom: 1px solid #14141f;
-          vertical-align: middle;
-        }
-        .sd-table tr:last-child td { border-bottom: none; }
-        .sd-table tr:hover td { background: #0f0f1e; }
-        .sd-product-name { color: #fff; font-weight: 500; }
-        .sd-category-badge {
-          display: inline-block;
-          background: #1a1a2e;
-          border: 1px solid #2d2d3f;
-          color: #a78bfa;
-          padding: 3px 10px;
-          border-radius: 20px;
-          font-size: 11px;
-        }
-        .sd-price { color: #4ade80; font-weight: 500; }
-        .sd-stock { color: #9ca3af; }
-        .sd-stock.low { color: #f87171; }
-        .sd-action-btns { display: flex; gap: 8px; }
-        .sd-edit-btn, .sd-delete-btn {
-          border: none;
-          padding: 6px 12px;
-          border-radius: 6px;
-          font-family: 'DM Mono', monospace;
-          font-size: 11px;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-        .sd-edit-btn { background: #1e1e2e; color: #a78bfa; }
-        .sd-edit-btn:hover { background: #2d2d3f; }
-        .sd-delete-btn { background: #1c0a0a; color: #f87171; }
-        .sd-delete-btn:hover { background: #2d1111; }
-
-        /* ── Empty state ── */
-        .sd-empty {
-          text-align: center;
-          padding: 60px 20px;
-          color: #4b5563;
-        }
-        .sd-empty-icon { font-size: 40px; margin-bottom: 12px; }
-        .sd-empty-text { font-size: 14px; margin-bottom: 4px; color: #6b7280; }
-        .sd-empty-sub { font-size: 12px; }
-
-        /* ── Confirm modal ── */
-        .sd-overlay {
-          position: fixed; inset: 0;
-          background: rgba(0,0,0,0.7);
-          display: flex; align-items: center; justify-content: center;
-          z-index: 200;
-          animation: fadeIn 0.2s ease;
-        }
-        .sd-modal {
-          background: #111120;
-          border: 1px solid #2d2d3f;
-          border-radius: 14px;
-          padding: 32px;
-          max-width: 380px;
-          width: 90%;
-          text-align: center;
-        }
-        .sd-modal-icon { font-size: 32px; margin-bottom: 12px; }
-        .sd-modal-title {
-          font-family: 'Syne', sans-serif;
-          font-size: 18px;
-          font-weight: 700;
-          color: #fff;
-          margin-bottom: 8px;
-        }
-        .sd-modal-text { font-size: 13px; color: #6b7280; margin-bottom: 24px; }
-        .sd-modal-btns { display: flex; gap: 12px; justify-content: center; }
-        .sd-modal-cancel {
-          background: none;
-          border: 1px solid #2d2d3f;
-          color: #9ca3af;
-          padding: 10px 20px;
-          border-radius: 8px;
-          font-family: 'DM Mono', monospace;
-          font-size: 13px;
-          cursor: pointer;
-        }
-        .sd-modal-confirm {
-          background: #7f1d1d;
-          color: #f87171;
-          border: none;
-          padding: 10px 20px;
-          border-radius: 8px;
-          font-family: 'DM Mono', monospace;
-          font-size: 13px;
-          cursor: pointer;
-        }
-        .sd-modal-confirm:hover { background: #991b1b; }
-
-        /* ── Skeleton loader ── */
-        .sd-skeleton {
-          background: linear-gradient(90deg, #1a1a2e 25%, #23233a 50%, #1a1a2e 75%);
-          background-size: 200% 100%;
-          animation: shimmer 1.5s infinite;
-          border-radius: 6px;
-          height: 16px;
-          margin: 4px 0;
-        }
-        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-
-        @media (max-width: 640px) {
-          .sd-stats { grid-template-columns: 1fr; }
-          .sd-form-grid { grid-template-columns: 1fr; }
-          .sd-header { padding: 16px 20px; }
-          .sd-body { padding: 24px 16px; }
-          .sd-table th, .sd-table td { padding: 12px 14px; }
-        }
-      `}</style>
-
-      <div className="sd-root">
-        {/* Header */}
-        <header className="sd-header">
-          <div className="sd-logo">Shop<span>AI</span></div>
-          <div className="sd-header-right">
-            <span className="sd-username">{user?.email}</span>
-            <div className="sd-avatar">
-              {firstName.slice(0, 2).toUpperCase()}
+          <div className="user-pill-wrapper" ref={menuRef}>
+            <div className="user-pill" onClick={() => setMenuOpen(o => !o)}>
+              <div className="user-pill-avatar">{initials}</div>
+              {firstName}
+              <span className="pill-caret">{menuOpen ? '▲' : '▼'}</span>
             </div>
-            {onBack && (
-              <button className="sd-back-btn" onClick={onBack}>← Back</button>
-            )}
-          </div>
-        </header>
 
-        <div className="sd-body">
-          {/* Title */}
-          <div className="sd-title">Seller Dashboard</div>
-          <div className="sd-subtitle">Manage your product listings</div>
-
-          {/* Stats */}
-          <div className="sd-stats">
-            <div className="sd-stat">
-              <div className="sd-stat-label">Total Products</div>
-              <div className="sd-stat-value">{products.length}</div>
-            </div>
-            <div className="sd-stat">
-              <div className="sd-stat-label">Total Value</div>
-              <div className="sd-stat-value purple">${totalRevenue.toFixed(2)}</div>
-            </div>
-            <div className="sd-stat">
-              <div className="sd-stat-label">Low Stock</div>
-              <div className="sd-stat-value">
-                {products.filter(p => parseInt(p.stock) < 5).length}
-              </div>
-            </div>
-          </div>
-
-          {/* Toast messages */}
-          {success && <div className="sd-toast success">✓ {success}</div>}
-          {error   && <div className="sd-toast error">✗ {error}</div>}
-
-          {/* Toolbar */}
-          <div className="sd-toolbar">
-            <div className="sd-section-title">Your Products</div>
-            <button className="sd-add-btn" onClick={() => { setShowForm(f => !f); setError(''); }}>
-              {showForm ? '✕ Cancel' : '+ Add Product'}
-            </button>
-          </div>
-
-          {/* Add Product Form */}
-          {showForm && (
-            <div className="sd-form-card">
-              <div className="sd-form-title">New Product</div>
-              <form onSubmit={handleSubmit}>
-                <div className="sd-form-grid">
-                  <div className="sd-field">
-                    <label className="sd-label">Product Name *</label>
-                    <input className="sd-input" name="name" value={form.name}
-                      onChange={handleChange} placeholder="e.g. Wireless Headphones" />
-                  </div>
-                  <div className="sd-field">
-                    <label className="sd-label">Category *</label>
-                    <select className="sd-select" name="category" value={form.category} onChange={handleChange}>
-                      <option value="">Select category...</option>
-                      {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
-                  <div className="sd-field">
-                    <label className="sd-label">Price (AUD) *</label>
-                    <input className="sd-input" name="price" type="number" min="0" step="0.01"
-                      value={form.price} onChange={handleChange} placeholder="0.00" />
-                  </div>
-                  <div className="sd-field">
-                    <label className="sd-label">Stock Quantity</label>
-                    <input className="sd-input" name="stock" type="number" min="0"
-                      value={form.stock} onChange={handleChange} placeholder="0" />
-                  </div>
-                  <div className="sd-field sd-form-full">
-                    <label className="sd-label">Image URL</label>
-                    <input className="sd-input" name="image" value={form.image}
-                      onChange={handleChange} placeholder="https://..." />
-                  </div>
-                  <div className="sd-field sd-form-full">
-                    <label className="sd-label">Description</label>
-                    <textarea className="sd-textarea" name="description" value={form.description}
-                      onChange={handleChange} placeholder="Describe your product..." />
+            {menuOpen && (
+              <div className="user-dropdown">
+                <div className="user-dropdown-header">
+                  <div className="user-dropdown-avatar">{initials}</div>
+                  <div>
+                    <div className="user-dropdown-name">{currentUser.first_name} {currentUser.last_name}</div>
+                    <div className="user-dropdown-email">{currentUser.email}</div>
                   </div>
                 </div>
-                <div className="sd-form-actions">
-                  <button type="button" className="sd-cancel-btn"
-                    onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setError(''); }}>
-                    Cancel
+                <div className="user-dropdown-divider" />
+                {menuItems.map((item, i) => (
+                  <button key={i}
+                    className={`user-dropdown-item ${item.danger ? 'danger' : ''}`}
+                    onClick={item.action}>
+                    <span className="dropdown-icon">{item.icon}</span>
+                    {item.label}
                   </button>
-                  <button type="submit" className="sd-submit-btn" disabled={loading}>
-                    {loading ? 'Adding...' : 'Add Product'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
-
-          {/* Products Table */}
-          <div className="sd-table-wrap">
-            {fetching ? (
-              <div style={{ padding: '24px' }}>
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
-                    <div className="sd-skeleton" style={{ width: '30%' }} />
-                    <div className="sd-skeleton" style={{ width: '20%' }} />
-                    <div className="sd-skeleton" style={{ width: '15%' }} />
-                    <div className="sd-skeleton" style={{ width: '15%' }} />
-                  </div>
                 ))}
               </div>
-            ) : products.length === 0 ? (
-              <div className="sd-empty">
-                <div className="sd-empty-icon">📦</div>
-                <div className="sd-empty-text">No products yet</div>
-                <div className="sd-empty-sub">Click "Add Product" to list your first item</div>
-              </div>
-            ) : (
-              <table className="sd-table">
-                <thead>
-                  <tr>
-                    <th>Product</th>
-                    <th>Category</th>
-                    <th>Price</th>
-                    <th>Stock</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {products.map(p => (
-                    <tr key={p.id}>
-                      <td className="sd-product-name">{p.name}</td>
-                      <td><span className="sd-category-badge">{p.category}</span></td>
-                      <td className="sd-price">${parseFloat(p.price).toFixed(2)}</td>
-                      <td className={`sd-stock ${parseInt(p.stock) < 5 ? 'low' : ''}`}>
-                        {p.stock ?? '—'}
-                        {parseInt(p.stock) < 5 && parseInt(p.stock) >= 0 && ' ⚠'}
-                      </td>
-                      <td>
-                        <div className="sd-action-btns">
-                          <button className="sd-edit-btn" onClick={() => setEditProduct(p)}>Edit</button>
-                          <button className="sd-delete-btn" onClick={() => handleDelete(p.id)}>Delete</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             )}
           </div>
+        </div>
+      </nav>
+
+      {/* ── Hero ─────────────────────────────────────────────────────────── */}
+      <div className="home-hero">
+        <h1 className="home-greeting">
+          Good {greeting}, <em>{firstName}.</em>
+        </h1>
+        <p style={{ color: 'var(--muted)', fontSize: 15 }}>Manage your listings and track incoming orders.</p>
+        <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
+          <button className="btn btn-primary" onClick={openAddForm}>+ Add Product</button>
+          <button className="btn btn-ghost" onClick={() => setTab('orders')}>View Orders →</button>
         </div>
       </div>
 
-      {/* Delete Confirm Modal */}
-      {deleteId && (
-        <div className="sd-overlay" onClick={() => setDeleteId(null)}>
-          <div className="sd-modal" onClick={e => e.stopPropagation()}>
-            <div className="sd-modal-icon">🗑️</div>
-            <div className="sd-modal-title">Delete Product?</div>
-            <div className="sd-modal-text">This action cannot be undone.</div>
-            <div className="sd-modal-btns">
-              <button className="sd-modal-cancel" onClick={() => setDeleteId(null)}>Cancel</button>
-              <button className="sd-modal-confirm" onClick={confirmDelete}>Delete</button>
+      {/* ── Main ─────────────────────────────────────────────────────────── */}
+      <div className="home-main">
+
+        {/* Stats banner */}
+        <div className="ai-banner" style={{ marginBottom: 32 }}>
+          <div className="ai-banner-text">
+            <h3>🏪 Your Store at a Glance</h3>
+            <p>Keep your listings fresh and fulfil orders promptly</p>
+          </div>
+          <div style={{ display: 'flex', gap: 40, flexWrap: 'wrap' }}>
+            {[
+              { label: 'Products',      value: products.length,  color: '#fff' },
+              { label: 'Total Value',   value: `$${totalValue.toFixed(0)}`, color: 'var(--gold)' },
+              { label: 'Pending Orders',value: pendingOrders,    color: pendingOrders > 0 ? '#f59e0b' : '#4ade80' },
+              { label: 'Low Stock',     value: lowStock,         color: lowStock > 0 ? '#f87171' : '#4ade80' },
+            ].map(s => (
+              <div key={s.label} style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 26, fontWeight: 700, color: s.color }}>{s.value}</div>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Toast messages */}
+        {success && (
+          <div style={{
+            background: 'rgba(39,174,96,0.1)', border: '1px solid rgba(39,174,96,0.3)',
+            color: 'var(--success)', padding: '12px 18px', borderRadius: 10,
+            marginBottom: 20, fontSize: 14,
+          }}>✓ {success}</div>
+        )}
+        {error && (
+          <div style={{
+            background: 'rgba(192,57,43,0.08)', border: '1px solid rgba(192,57,43,0.25)',
+            color: 'var(--danger)', padding: '12px 18px', borderRadius: 10,
+            marginBottom: 20, fontSize: 14,
+          }}>✗ {error}</div>
+        )}
+
+        {/* ── Tabs ───────────────────────────────────────────────────────── */}
+        <div style={{ display: 'flex', gap: 4, marginBottom: 28, borderBottom: '2px solid var(--border)', paddingBottom: 0 }}>
+          {[
+            { key: 'products', label: '📦 My Products' },
+            { key: 'orders',   label: `🧾 Incoming Orders ${pendingOrders > 0 ? `(${pendingOrders} pending)` : ''}` },
+          ].map(t => (
+            <button key={t.key} onClick={() => setTab(t.key)} style={{
+              background: 'none', border: 'none', padding: '10px 20px',
+              fontFamily: "'Playfair Display', serif", fontSize: 15, fontWeight: 700,
+              cursor: 'pointer', color: tab === t.key ? 'var(--dark)' : 'var(--muted)',
+              borderBottom: tab === t.key ? '2px solid var(--gold)' : '2px solid transparent',
+              marginBottom: -2, transition: 'all 0.2s',
+            }}>{t.label}</button>
+          ))}
+        </div>
+
+        {/* ── Add / Edit Form ─────────────────────────────────────────────── */}
+        {showForm && (
+          <div style={{
+            background: '#fff', border: '2px solid var(--gold)', borderRadius: 16,
+            padding: 28, marginBottom: 32, animation: 'fadeUp 0.3s ease both',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700 }}>
+                {editingId ? '✏️ Edit Product' : '➕ New Product'}
+              </h3>
+              <button onClick={closeForm} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: 'var(--muted)' }}>✕</button>
             </div>
+
+            <form onSubmit={handleSubmit}>
+              <div className="form-row" style={{ marginBottom: 16 }}>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label>Product Name *</label>
+                  <div className="input-wrap">
+                    <span className="input-icon">🏷️</span>
+                    <input name="name" value={form.name} onChange={handleChange} placeholder="e.g. Wireless Headphones" />
+                  </div>
+                </div>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label>Category *</label>
+                  <div className="input-wrap">
+                    <select name="category" value={form.category} onChange={handleChange}
+                      style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontFamily: 'inherit', fontSize: 14 }}>
+                      <option value="">Select category...</option>
+                      {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="form-row" style={{ marginBottom: 16 }}>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label>Price (AUD) *</label>
+                  <div className="input-wrap">
+                    <span className="input-icon">💰</span>
+                    <input name="price" type="number" min="0" step="0.01" value={form.price} onChange={handleChange} placeholder="0.00" />
+                  </div>
+                </div>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label>Stock Quantity</label>
+                  <div className="input-wrap">
+                    <span className="input-icon">📊</span>
+                    <input name="stock" type="number" min="0" value={form.stock} onChange={handleChange} placeholder="0" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Product Image</label>
+                <div className="input-wrap">
+                  <span className="input-icon">🖼️</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={e => setForm(f => ({ ...f, imageFile: e.target.files[0] }))}
+                    style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontFamily: 'inherit', fontSize: 14, padding: '4px 0' }}
+                  />
+                </div>
+                {form.imageFile && (
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
+                    Selected: {form.imageFile.name}
+                  </div>
+                )}
+              </div>
+
+              {/* AI Description Generator */}
+              <div className="form-group">
+                <label>Key Features <span style={{ color: 'var(--muted)', fontWeight: 400 }}>(for AI)</span></label>
+                <div className="input-wrap">
+                  <span className="input-icon">✨</span>
+                  <input value={aiFeatures} onChange={e => setAiFeatures(e.target.value)}
+                    placeholder="e.g. noise-cancelling, 30hr battery, foldable" />
+                </div>
+              </div>
+              <button type="button" className="btn btn-ghost" onClick={handleGenerateDescription}
+                disabled={aiLoading} style={{ marginBottom: 12, fontSize: 13 }}>
+                {aiLoading ? '⏳ Generating...' : '🤖 Generate AI Description'}
+              </button>
+
+              <div className="form-group">
+                <label>Description</label>
+                <textarea name="description" value={form.description} onChange={handleChange}
+                  placeholder="Describe your product..."
+                  style={{
+                    width: '100%', padding: '10px 14px', border: '1.5px solid var(--border)',
+                    borderRadius: 10, fontFamily: 'inherit', fontSize: 14,
+                    minHeight: 80, resize: 'vertical', outline: 'none', boxSizing: 'border-box',
+                  }} />
+              </div>
+
+              <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+                <button type="button" className="btn btn-ghost" onClick={closeForm}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={loading}>
+                  {loading ? 'Saving...' : editingId ? 'Save Changes' : 'Add Product'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* ── Products Tab ─────────────────────────────────────────────────── */}
+        {tab === 'products' && (
+          <>
+            <div className="section-header">
+              <h2 className="section-title">My Products</h2>
+              <span className="section-link" onClick={openAddForm}>+ Add new →</span>
+            </div>
+
+            {fetching ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px,1fr))', gap: 20 }}>
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} style={{ background: '#fff', borderRadius: 14, border: '1px solid var(--border)', height: 240,
+                    background: 'linear-gradient(90deg, #f5f0e8 25%, #fffdf7 50%, #f5f0e8 75%)',
+                    backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite' }} />
+                ))}
+              </div>
+            ) : products.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--muted)' }}>
+                <div style={{ fontSize: 48, marginBottom: 12 }}>📦</div>
+                <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 6 }}>No products yet</div>
+                <div style={{ fontSize: 14, marginBottom: 20 }}>Add your first product to start selling</div>
+                <button className="btn btn-gold" onClick={openAddForm}>+ Add Product</button>
+              </div>
+            ) : (
+              <div className="products-grid">
+                {products.map((p, i) => (
+                  <div className="product-card" key={p.id} style={{ animationDelay: `${0.05 * i}s`, cursor: 'default' }}>
+                    <div className="product-img">
+                      {p.image
+                        ? <img src={p.image.startsWith('http') ? p.image : `http://localhost:8000${p.image.startsWith('/') ? '' : '/'}${p.image}`} alt={p.name}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : getEmoji(p)
+                      }
+                    </div>
+                    <div className="product-info">
+                      <div className="product-name">{p.name}</div>
+                      <div className="product-cat">{p.category_name || '—'}</div>
+                      <div className="product-footer">
+                        <div className="product-price">${parseFloat(p.price).toFixed(2)}</div>
+                        <div className="product-rating" style={{ color: parseInt(p.stock) < 5 ? 'var(--danger)' : 'var(--muted)' }}>
+                          {parseInt(p.stock) < 5 ? `⚠ ${p.stock} left` : `${p.stock} in stock`}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, padding: '8px 14px 14px' }}>
+                      <button className="btn btn-ghost" style={{ flex: 1, fontSize: 12, padding: '6px 0' }}
+                        onClick={() => openEditForm(p)}>✏️ Edit</button>
+                      <button style={{ flex: 1, fontSize: 12, padding: '6px 0', background: 'rgba(192,57,43,0.08)',
+                        border: '1.5px solid rgba(192,57,43,0.2)', borderRadius: 8, color: 'var(--danger)', cursor: 'pointer' }}
+                        onClick={() => setDeleteId(p.id)}>🗑 Delete</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── Orders Tab ───────────────────────────────────────────────────── */}
+        {tab === 'orders' && (
+          <>
+            <div className="section-header">
+              <h2 className="section-title">Incoming Orders</h2>
+              <span className="section-link" onClick={fetchOrders}>↻ Refresh</span>
+            </div>
+
+            {orders.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--muted)' }}>
+                <div style={{ fontSize: 48, marginBottom: 12 }}>🧾</div>
+                <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 6 }}>No orders yet</div>
+                <div style={{ fontSize: 14 }}>Orders will appear here once customers purchase your products</div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {orders.map(o => (
+                  <div key={o.id} style={{
+                    background: '#fff', border: '1px solid var(--border)', borderRadius: 14,
+                    padding: 20, animation: 'fadeUp 0.3s ease both',
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>Order #{o.id}</div>
+                        <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                          {o.customer_email} · {new Date(o.created_at).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        {/* Status badge */}
+                        <span style={{
+                          padding: '4px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600,
+                          background: STATUS_COLORS[o.status]?.bg,
+                          color:      STATUS_COLORS[o.status]?.color,
+                        }}>
+                          {o.status.charAt(0).toUpperCase() + o.status.slice(1)}
+                        </span>
+                        {/* Status updater */}
+                        <select
+                          value={o.status}
+                          onChange={e => handleStatusChange(o.id, e.target.value)}
+                          style={{
+                            padding: '6px 10px', borderRadius: 8, border: '1.5px solid var(--border)',
+                            fontFamily: 'inherit', fontSize: 13, cursor: 'pointer', outline: 'none',
+                          }}>
+                          {['pending','confirmed','shipped','delivered','cancelled'].map(s => (
+                            <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Order items */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {o.items.map(item => (
+                        <div key={item.id} style={{
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                          background: 'var(--cream)', borderRadius: 10, padding: '10px 14px',
+                        }}>
+                          <div style={{ fontSize: 14, fontWeight: 500 }}>{item.product_name}</div>
+                          <div style={{ fontSize: 13, color: 'var(--muted)' }}>
+                            x{item.quantity} · <span style={{ color: 'var(--gold)', fontWeight: 600 }}>${parseFloat(item.price).toFixed(2)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div style={{ marginTop: 12, textAlign: 'right', fontSize: 14, fontWeight: 700 }}>
+                      Total: <span style={{ color: 'var(--gold)' }}>${parseFloat(o.total).toFixed(2)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* ── Delete Confirm Modal ─────────────────────────────────────────── */}
+      {deleteId && (
+        <div className="modal-overlay" onClick={() => setDeleteId(null)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()}>
+            <div className="modal-icon">🗑️</div>
+            <h3 className="modal-title">Delete Product?</h3>
+            <p className="modal-sub">This action cannot be undone. The product will be permanently removed.</p>
+            <button className="btn btn-primary" style={{ background: 'var(--danger)', marginBottom: 10 }} onClick={confirmDelete}>
+              Yes, Delete
+            </button>
+            <button className="modal-cancel" onClick={() => setDeleteId(null)}>Cancel</button>
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

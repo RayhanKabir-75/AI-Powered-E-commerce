@@ -69,7 +69,7 @@ export default function SignupPage({ onLogin }) {
         role:       form.role,
       });
       onLogin(res.data.user, res.data.token);
-      navigate('/home');
+      navigate(res.data.user.role === 'seller' ? '/seller' : '/home');
     } catch (err) {
       const data = err.response?.data;
       setApiErr(data?.email?.[0] || data?.password?.[0] || 'Registration failed. Please try again.');
@@ -96,7 +96,7 @@ export default function SignupPage({ onLogin }) {
             role: form.role,                  // customer or seller
           });
           onLogin(res.data.user, res.data.token);
-          navigate('/home');
+          navigate(res.data.user.role === 'seller' ? '/seller' : '/home');
         } catch (err) {
           setApiErr(err.response?.data?.error || 'Google sign-up failed. Please try again.');
         } finally {

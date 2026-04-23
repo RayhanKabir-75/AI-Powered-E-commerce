@@ -29,17 +29,27 @@ export default function App() {
     setUser(userData);
   };
 
-  const handleLogout = async () => {
-    try {
-      await logoutUser();
-    } catch (err) {
-      console.warn("Logout failed, clearing anyway");
-    } finally {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      setUser(null);
-    }
-  };
+const handleLogout = async () => {
+  try {
+    // Call the API to delete the token on the server
+    await logoutUser(); 
+    console.log("Logged out from server successfully");
+  } catch (err) {
+    // If something fails, still clear local data
+    console.warn("Logout failed on server, clearing anyway", err);
+  } finally {
+    // Clear local storage and React state
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null);
+  }
+};
+
+useEffect(() => {
+  fetch('http://localhost:8000/api/auth/csrf/', {
+    credentials: 'include',
+  });
+}, []);
 
   if (loading) return <div>Loading...</div>;
 
@@ -51,14 +61,14 @@ export default function App() {
         <Route
           path="/login"
           element={
-            !user ? <LoginPage onLogin={handleLogin} /> : <Navigate to="/home" />
+            !user ? <LoginPage onLogin={handleLogin} /> : user.role === 'seller' ? <Navigate to="/seller" /> : <Navigate to="/home" />
           }
         />
 
         <Route
           path="/signup"
           element={
-            !user ? <SignupPage onLogin={handleLogin} /> : <Navigate to="/home" />
+            !user ? <SignupPage onLogin={handleLogin} /> : user.role === 'seller' ? <Navigate to="/seller" /> : <Navigate to="/home" />
           }
         />
 
@@ -66,7 +76,7 @@ export default function App() {
           path="/home"
           element={
             user ? (
-              <HomePage user={user} onLogout={handleLogout} />
+              user.role === 'seller' ? <Navigate to="/seller" /> : <HomePage user={user} onLogout={handleLogout} />
             ) : (
               <Navigate to="/login" />
             )
@@ -77,7 +87,7 @@ export default function App() {
           path="/seller"
           element={
             user ? (
-              <SellerDashboard user={user} onBack={() => window.history.back()} />
+              user.role === 'seller' ? <SellerDashboard user={user} onLogout={handleLogout} /> : <Navigate to="/home" />
             ) : (
               <Navigate to="/login" />
             )
