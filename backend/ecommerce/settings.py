@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'orders',
     'reviews',
     'chatbot',
+    'product_ai',
 ]
 
 MIDDLEWARE = [
@@ -93,8 +94,8 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'ecommerce_db',
-        'USER' : 'ecom_user',
-        'PASSWORD' : 'strongpass',
+        'USER' : 'root',
+        'PASSWORD' : 'sAnu7501',
         'HOST' : 'localhost',
         'PORT' : '3306',
     }
