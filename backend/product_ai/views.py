@@ -1,79 +1,75 @@
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 import os
 import logging
 from dotenv import load_dotenv
 from openai import OpenAI
+import traceback
+
 
 # Load environment variables
 load_dotenv()
 
-# Toggle for AI usage
-USE_AI = False #for Dummy Output
-#USE_AI = True #for OpenAI
-
-# Logger setup
+# Logger
 logger = logging.getLogger(__name__)
 
 # OpenAI client
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-
 @api_view(['POST'])
+@permission_classes([AllowAny])
 def generate_description(request):
+    """AI-powered product description generator."""
+    # Toggle AI usage
+    USE_AI = True  # Change to False to force mock response during development
+    name     = request.data.get('name', '')
+    category = request.data.get('category', '')
+    price    = request.data.get('price', '')
+    features = request.data.get('features', '')
+
+    def build_mock_description():
+        return f"""
+Introducing the {name} – a premium {category} available for just ${price}.
+
+Key Features:
+- {features}
+
+This product delivers outstanding performance, durability, and value for money, making it a perfect choice for modern customers.
+"""
+
+    logger.info(f"Generating description for product: {name}, category: {category}, price: {price}")
+
+    if not USE_AI:
+        description = build_mock_description()
+        logger.info("USE_AI is False; returning mock response instead of calling OpenAI API")
+        return Response({
+            'message': 'Mock response generated because OpenAI API usage is disabled.',
+            'description': description
+        })
+
+    prompt = f"""
+    Write a compelling 2-3 sentence e-commerce product description for:
+    Product: {name}
+    Category: {category}
+    Price: ${price}
+    Key Features: {features}
+    Be engaging, clear, and highlight the value to the customer.
+    """
     try:
-        #  Get input data
-        product_name = request.data.get("name")
-        category = request.data.get("category", "")
-        features = request.data.get("features", "")
-
-        #  Validation
-        if not product_name or not category or not features:
-            return Response(
-                {"error": "Name, category, and features are required"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        logger.info(f"Generating description for: {product_name}")
-
-        # Mock response (when AI is disabled)
-        if not USE_AI:
-            description = f"""
-            Introducing the {product_name} – a top-quality {category} designed for modern users.
-            Key Features:
-            - {features}
-            This product combines performance, reliability, and style, making it an excellent choice for everyday use. Perfect for customers looking for value and durability.
-            """
-            return Response({"description": description})
-
-        #  AI Prompt
-        prompt = f"""
-        Write a professional e-commerce product description.
-
-        Product Name: {product_name}
-        Category: {category}
-        Features: {features}
-
-        Make it engaging, clear, and suitable for online shoppers.
-        """
-
-        # OpenAI API call
         response = client.chat.completions.create(
-            model="gpt-4.1-mini",
-            messages=[
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=150
+            model    = "gpt-3.5-turbo",
+            messages = [{"role": "user", "content": prompt}],
+            max_tokens = 150,
         )
-
-        description = response.choices[0].message.content
-
-        return Response({"description": description})
-
-    except Exception as e:
-        logger.error(f"Error generating description: {str(e)}")
-        return Response(
-            {"error": str(e)},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+        description = response.choices[0].message.content.strip()
+        logger.info(f"Successfully generated description for {name}")
+        return Response({'description': description})
+    except Exception:
+        logger.exception(f"OpenAI API call failed for product: {name}")
+        description = build_mock_description()
+        return Response({
+            'message': 'OpenAI API failed; mock response generated instead.',
+            'description': description
+        })

@@ -87,7 +87,7 @@ WSGI_APPLICATION = 'ecommerce.wsgi.application'
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
 ]
-
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
 DATABASES = {
@@ -105,10 +105,12 @@ DATABASES = {
 AUTH_USER_MODEL = 'users.User'
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.SessionAuthentication',
+    'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework.authentication.TokenAuthentication',
-    ],
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.AllowAny',
+    ),
 }
 
 # Password validation
@@ -170,3 +172,4 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 # DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 FRONTEND_URL = 'http://localhost:3000'
 EMAIL_USE_TLS = True
+DEBUG = True
