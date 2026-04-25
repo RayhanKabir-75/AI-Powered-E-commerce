@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'orders',
     'reviews',
     'chatbot',
+    'product_ai',
 ]
 
 MIDDLEWARE = [
@@ -86,6 +87,7 @@ WSGI_APPLICATION = 'ecommerce.wsgi.application'
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
 ]
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
@@ -98,8 +100,8 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'ecommerce_db',
-        'USER' : 'ecom_user',
-        'PASSWORD' : 'strongpass',
+        'USER' : 'root',
+        'PASSWORD' : 'sAnu7501',
         'HOST' : 'localhost',
         'PORT' : '3306',
     }
@@ -109,10 +111,12 @@ DATABASES = {
 AUTH_USER_MODEL = 'users.User'
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.SessionAuthentication',
+    'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework.authentication.TokenAuthentication',
-    ],
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.AllowAny',
+    ),
 }
 
 # Password validation
@@ -132,15 +136,6 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
-
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
-
-CSRF_COOKIE_HTTPONLY = False  
-CSRF_COOKIE_SAMESITE = 'Lax'  
-
 
 # Internationalization
 # https://docs.djangoproject.com/en/4.1/topics/i18n/

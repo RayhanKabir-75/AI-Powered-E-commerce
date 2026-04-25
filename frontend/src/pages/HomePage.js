@@ -81,7 +81,7 @@ export default function HomePage({ user, onLogout }) {
     // Seller-only: AI Description Generator
     ...(currentUser.role === 'seller' ? [{
       icon: '✍️', label: 'AI Description Generator',
-      action: () => { setAiDescOpen(true); setMenuOpen(false); },
+      action: () => { navigate("/generate-description"); setMenuOpen(false); },
     }] : []),
     {
       icon: '🚪', label: 'Log out',
