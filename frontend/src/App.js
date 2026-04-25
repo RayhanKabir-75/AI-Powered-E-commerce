@@ -5,6 +5,7 @@ import LandingPage from './pages/LandingPage';
 import LoginPage   from './pages/LoginPage';
 import SignupPage  from './pages/SignupPage';
 import HomePage    from './pages/HomePage';
+import SellerDashboard from './pages/SellerDashboard';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 
 import { logoutUser } from './api/api';
@@ -66,7 +67,7 @@ export default function App() {
         <Route
           path="/login"
           element={
-            !user ? <LoginPage onLogin={handleLogin} /> : <Navigate to="/home" />
+            !user ? <LoginPage onLogin={handleLogin} /> : user.role === 'seller' ? <Navigate to="/seller" /> : <Navigate to="/home" />
           }
         />
 
@@ -74,7 +75,7 @@ export default function App() {
         <Route
           path="/signup"
           element={
-            !user ? <SignupPage onLogin={handleLogin} /> : <Navigate to="/home" />
+            !user ? <SignupPage onLogin={handleLogin} /> : user.role === 'seller' ? <Navigate to="/seller" /> : <Navigate to="/home" />
           }
         />
 
@@ -83,7 +84,18 @@ export default function App() {
           path="/home"
           element={
             user ? (
-              <HomePage user={user} onLogout={handleLogout} />
+              user.role === 'seller' ? <Navigate to="/seller" /> : <HomePage user={user} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
+        <Route
+          path="/seller"
+          element={
+            user ? (
+              user.role === 'seller' ? <SellerDashboard user={user} onLogout={handleLogout} /> : <Navigate to="/home" />
             ) : (
               <Navigate to="/login" />
             )

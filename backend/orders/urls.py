@@ -16,4 +16,7 @@ urlpatterns = [
 
     # POST /api/orders/<id>/cancel/  — cancel order (customer)
     path('<int:order_id>/cancel/',       views.cancel_order),
+
+    # GET /api/orders/seller/        — seller's incoming orders
+    path('seller/',                      views.seller_orders),
 ]
