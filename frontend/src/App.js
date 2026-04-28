@@ -1,16 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+
 import LandingPage from './pages/LandingPage';
 import LoginPage   from './pages/LoginPage';
 import SignupPage  from './pages/SignupPage';
 import HomePage    from './pages/HomePage';
 import SellerDashboard from './pages/SellerDashboard';
-import { logoutUser } from './api/api';
+import CartPage from './pages/CartPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+
+import { logoutUser } from './api/api';
+
+// IMPORT YOUR COMPONENT
+import ProductDescription from "./components/ProductDescription";
 
 export default function App() {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true); 
+  const [loading, setLoading] = useState(true);
+  const [cart, setCart] = useState([]); 
 
   useEffect(() => {
     const savedUser  = localStorage.getItem('user');
@@ -29,35 +36,36 @@ export default function App() {
     setUser(userData);
   };
 
-const handleLogout = async () => {
-  try {
-    // Call the API to delete the token on the server
-    await logoutUser(); 
-    console.log("Logged out from server successfully");
-  } catch (err) {
-    // If something fails, still clear local data
-    console.warn("Logout failed on server, clearing anyway", err);
-  } finally {
-    // Clear local storage and React state
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setUser(null);
-  }
-};
+  const handleLogout = async () => {
+    try {
+      await logoutUser(); 
+      console.log("Logged out from server successfully");
+    } catch (err) {
+      console.warn("Logout failed on server, clearing anyway", err);
+    } finally {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setUser(null);
+    }
+  };
 
-useEffect(() => {
-  fetch('http://localhost:8000/api/auth/csrf/', {
-    credentials: 'include',
-  });
-}, []);
+  // CSRF setup
+  useEffect(() => {
+    fetch('http://localhost:8000/api/auth/csrf/', {
+      credentials: 'include',
+    });
+  }, []);
 
   if (loading) return <div>Loading...</div>;
 
   return (
     <BrowserRouter>
       <Routes>
+
+        {/* Landing */}
         <Route path="/" element={<LandingPage />} />
 
+        {/* Login */}
         <Route
           path="/login"
           element={
@@ -65,6 +73,7 @@ useEffect(() => {
           }
         />
 
+        {/* Signup */}
         <Route
           path="/signup"
           element={
@@ -72,11 +81,12 @@ useEffect(() => {
           }
         />
 
+        {/* Home */}
         <Route
           path="/home"
           element={
             user ? (
-              user.role === 'seller' ? <Navigate to="/seller" /> : <HomePage user={user} onLogout={handleLogout} />
+              user.role === 'seller' ? <Navigate to="/seller" /> : <HomePage user={user} onLogout={handleLogout} cart={cart} setCart={setCart} />
             ) : (
               <Navigate to="/login" />
             )
@@ -94,10 +104,35 @@ useEffect(() => {
           }
         />
 
+        {/*NEW ROUTE: PRODUCT DESCRIPTION */}
+        <Route
+          path="/generate-description"
+          element={
+            user ? (
+              <ProductDescription />
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
+        {/* Reset Password */}
+        <Route
+          path="/cart"
+          element={
+            user ? (
+              <CartPage cart={cart} setCart={setCart} user={user} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
         <Route
           path="/reset-password/:uid/:token"
           element={<ResetPasswordPage />}
         />
+
       </Routes>
     </BrowserRouter>
   );

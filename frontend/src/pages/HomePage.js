@@ -22,7 +22,7 @@ const PRODUCTS = [
 const hour     = new Date().getHours();
 const greeting = hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
 
-export default function HomePage({ user, onLogout }) {
+export default function HomePage({ user, onLogout, cart, setCart }) {
   const navigate  = useNavigate();
   const menuRef   = useRef(null);
 
@@ -36,6 +36,16 @@ export default function HomePage({ user, onLogout }) {
 
   // Local user state — updated when profile is saved
   const [currentUser, setCurrentUser] = useState(user);
+
+  const cartCount = cart.reduce((s, i) => s + i.qty, 0);
+
+  const addToCart = (product) => {
+    setCart(prev => {
+      const existing = prev.find(i => i.id === product.id);
+      if (existing) return prev.map(i => i.id === product.id ? { ...i, qty: i.qty + 1 } : i);
+      return [...prev, { ...product, qty: 1 }];
+    });
+  };
 
   const initials  = currentUser.first_name
     ? (currentUser.first_name[0] + (currentUser.last_name?.[0] || '')).toUpperCase()
@@ -67,6 +77,10 @@ export default function HomePage({ user, onLogout }) {
   // Dropdown menu items — all now functional
   const menuItems = [
     {
+      icon: '🛒', label: `Cart (${cartCount})`,
+      action: () => { navigate('/cart'); setMenuOpen(false); },
+    },
+    {
       icon: '👤', label: 'Edit Profile',
       action: () => { setProfileOpen(true); setMenuOpen(false); },
     },
@@ -81,7 +95,7 @@ export default function HomePage({ user, onLogout }) {
     // Seller-only: AI Description Generator
     ...(currentUser.role === 'seller' ? [{
       icon: '✍️', label: 'AI Description Generator',
-      action: () => { setAiDescOpen(true); setMenuOpen(false); },
+      action: () => { navigate("/generate-description"); setMenuOpen(false); },
     }] : []),
     {
       icon: '🚪', label: 'Log out',
@@ -103,6 +117,23 @@ export default function HomePage({ user, onLogout }) {
         </div>
 
         <div className="home-nav-right">
+          {/* Cart icon */}
+          <button onClick={() => navigate('/cart')} style={{
+            position: 'relative', background: 'none', border: '1.5px solid var(--border)',
+            borderRadius: 999, padding: '6px 14px', cursor: 'pointer', display: 'flex',
+            alignItems: 'center', gap: 6, fontSize: 14, fontFamily: 'inherit', transition: 'all 0.2s',
+          }}>
+            🛒
+            {cartCount > 0 && (
+              <span style={{
+                position: 'absolute', top: -6, right: -6, background: 'var(--gold)',
+                color: '#fff', borderRadius: '50%', width: 18, height: 18,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 10, fontWeight: 700,
+              }}>{cartCount}</span>
+            )}
+          </button>
+
           <span className={`role-badge ${currentUser.role}`}>
             {currentUser.role === 'customer' ? '🛍️' : currentUser.role === 'seller' ? '🏪' : '⚙️'} {currentUser.role}
           </span>
@@ -209,6 +240,13 @@ export default function HomePage({ user, onLogout }) {
                   ▲ Click again to collapse
                 </div>
               )}
+              {/* Add to Cart button */}
+              <div style={{ padding: '8px 14px 14px' }} onClick={e => e.stopPropagation()}>
+                <button className="btn btn-primary" style={{ width: '100%', fontSize: 13, padding: '8px 0' }}
+                  onClick={() => addToCart({ ...p, cat: p.cat })}>
+                  + Add to Cart
+                </button>
+              </div>
             </div>
           ))}
         </div>
