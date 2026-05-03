@@ -7,6 +7,7 @@ import SignupPage  from './pages/SignupPage';
 import HomePage    from './pages/HomePage';
 import SellerDashboard from './pages/SellerDashboard';
 import CartPage from './pages/CartPage';
+import CheckoutPage from './pages/CheckoutPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 
 import { logoutUser } from './api/api';
@@ -122,6 +123,17 @@ export default function App() {
           element={
             user ? (
               <CartPage cart={cart} setCart={setCart} user={user} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
+        <Route
+          path="/checkout"
+          element={
+            user ? (
+              <CheckoutPage user={user} setCart={setCart} />
             ) : (
               <Navigate to="/login" />
             )

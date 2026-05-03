@@ -29,32 +29,27 @@ export default function SellerDashboard({ user, onLogout }) {
   const navigate = useNavigate();
   const menuRef  = useRef(null);
 
-  // ── State ────────────────────────────────────────────────────────────────
-  const [tab,         setTab]         = useState('products');
-  const [products,    setProducts]    = useState([]);
-  const [orders,      setOrders]      = useState([]);
-  const [categories,  setCategories]  = useState([]);
-  const [form,        setForm]        = useState(EMPTY_FORM);
-  const [editingId,   setEditingId]   = useState(null);
-  const [showForm,    setShowForm]    = useState(false);
-  const [loading,     setLoading]     = useState(false);
-  const [fetching,    setFetching]    = useState(true);
-  const [aiLoading,   setAiLoading]   = useState(false);
-  const [error,       setError]       = useState('');
-  const [success,     setSuccess]     = useState('');
-  const [deleteId,    setDeleteId]    = useState(null);
-  const [menuOpen,    setMenuOpen]    = useState(false);
-  const [aiFeatures,  setAiFeatures]  = useState('');
+  const [tab,        setTab]        = useState('products');
+  const [products,   setProducts]   = useState([]);
+  const [orders,     setOrders]     = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [form,       setForm]       = useState(EMPTY_FORM);
+  const [editingId,  setEditingId]  = useState(null);
+  const [showForm,   setShowForm]   = useState(false);
+  const [loading,    setLoading]    = useState(false);
+  const [fetching,   setFetching]   = useState(true);
+  const [aiLoading,  setAiLoading]  = useState(false);
+  const [error,      setError]      = useState('');
+  const [success,    setSuccess]    = useState('');
+  const [deleteId,   setDeleteId]   = useState(null);
+  const [menuOpen,   setMenuOpen]   = useState(false);
+  const [aiFeatures, setAiFeatures] = useState('');
 
-  // FIX 1: removed unused setCurrentUser — use user prop directly
-  const currentUser = user;
+  const firstName = user.first_name || user.email.split('@')[0];
+  const initials  = user.first_name
+    ? (user.first_name[0] + (user.last_name?.[0] || '')).toUpperCase()
+    : user.email.slice(0, 2).toUpperCase();
 
-  const firstName = currentUser.first_name || currentUser.email.split('@')[0];
-  const initials  = currentUser.first_name
-    ? (currentUser.first_name[0] + (currentUser.last_name?.[0] || '')).toUpperCase()
-    : currentUser.email.slice(0, 2).toUpperCase();
-
-  // ── Close dropdown on outside click ──────────────────────────────────────
   useEffect(() => {
     const handler = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
@@ -63,40 +58,35 @@ export default function SellerDashboard({ user, onLogout }) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // FIX 2: wrap fetchAll in useCallback so it can be safely listed as dependency
-  const fetchAll = useCallback(() => {
-    fetchProducts();
-    fetchOrders();
-    fetchCategories();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => { fetchAll(); }, [fetchAll]);
-
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
       const res = await API.get('products/categories/');
       setCategories(res.data.results ?? res.data);
     } catch { console.error('Failed to load categories'); }
-  };
+  }, []);
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     setFetching(true);
     try {
       const res = await getProducts();
       setProducts(res.data.results ?? res.data);
     } catch { setError('Failed to load products.'); }
     finally { setFetching(false); }
-  };
+  }, []);
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     try {
       const res = await API.get('orders/seller/');
       setOrders(res.data);
     } catch { console.error('Failed to load orders'); }
-  };
+  }, []);
 
-  // ── Form helpers ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    fetchProducts();
+    fetchOrders();
+    fetchCategories();
+  }, [fetchProducts, fetchOrders, fetchCategories]);
+
   const handleChange = (e) => {
     setForm(f => ({ ...f, [e.target.name]: e.target.value }));
     setError('');
@@ -133,7 +123,6 @@ export default function SellerDashboard({ user, onLogout }) {
     setError('');
   };
 
-  // ── AI Description Generator ──────────────────────────────────────────────
   const handleGenerateDescription = async () => {
     if (!form.name) { setError('Enter a product name first.'); return; }
     setAiLoading(true);
@@ -154,7 +143,6 @@ export default function SellerDashboard({ user, onLogout }) {
     }
   };
 
-  // ── Submit product (add or edit) ──────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.name || !form.price || !form.category) {
@@ -189,7 +177,6 @@ export default function SellerDashboard({ user, onLogout }) {
     }
   };
 
-  // ── Delete product ────────────────────────────────────────────────────────
   const confirmDelete = async () => {
     try {
       await deleteProduct(deleteId);
@@ -203,7 +190,6 @@ export default function SellerDashboard({ user, onLogout }) {
     }
   };
 
-  // ── Update order status ───────────────────────────────────────────────────
   const handleStatusChange = async (orderId, newStatus) => {
     try {
       await updateOrderStatus(orderId, newStatus);
@@ -220,7 +206,6 @@ export default function SellerDashboard({ user, onLogout }) {
     navigate('/');
   };
 
-  // ── Stats ─────────────────────────────────────────────────────────────────
   const totalValue    = products.reduce((s, p) => s + (parseFloat(p.price) * (parseInt(p.stock) || 0)), 0);
   const lowStock      = products.filter(p => parseInt(p.stock) < 5).length;
   const pendingOrders = orders.filter(o => o.status === 'pending').length;
@@ -234,7 +219,6 @@ export default function SellerDashboard({ user, onLogout }) {
     { icon: '🚪', label: 'Log out',         action: handleLogout, danger: true },
   ];
 
-  // FIX 3: skeleton card style — removed duplicate 'background' key
   const skeletonStyle = {
     background: 'linear-gradient(90deg, #f5f0e8 25%, #fffdf7 50%, #f5f0e8 75%)',
     backgroundSize: '200% 100%',
@@ -272,8 +256,8 @@ export default function SellerDashboard({ user, onLogout }) {
                 <div className="user-dropdown-header">
                   <div className="user-dropdown-avatar">{initials}</div>
                   <div>
-                    <div className="user-dropdown-name">{currentUser.first_name} {currentUser.last_name}</div>
-                    <div className="user-dropdown-email">{currentUser.email}</div>
+                    <div className="user-dropdown-name">{user.first_name} {user.last_name}</div>
+                    <div className="user-dropdown-email">{user.email}</div>
                   </div>
                 </div>
                 <div className="user-dropdown-divider" />

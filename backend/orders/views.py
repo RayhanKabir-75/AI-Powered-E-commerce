@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.db import transaction
 from .models import Order, OrderItem
-from .serializers import OrderSerializer, PlaceOrderSerializer
+from .serializers import OrderSerializer, OrderItemSerializer, PlaceOrderSerializer
 
 
 # ── List customer's own orders ────────────────────────────────────────────────
@@ -191,10 +191,16 @@ def seller_orders(request):
     if request.user.role != 'seller':
         return Response({'error': 'Only sellers can access this endpoint.'}, status=403)
 
-    # Find orders that have items belonging to this seller's products
     orders = Order.objects.filter(
         items__product__seller=request.user
     ).prefetch_related('items__product').order_by('-created_at').distinct()
 
-    serializer = OrderSerializer(orders, many=True)
-    return Response(serializer.data)
+    result = []
+    for order in orders:
+        data = OrderSerializer(order).data
+        # Replace items with only this seller's items
+        seller_items = order.items.filter(product__seller=request.user)
+        data['items'] = OrderItemSerializer(seller_items, many=True).data
+        result.append(data)
+
+    return Response(result)

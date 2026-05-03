@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { logoutUser } from '../api/api';
+import { logoutUser, getProducts } from '../api/api';
 import ChatbotWidget      from '../components/ChatbotWidget';
 import ProfileModal       from '../components/ProfileModal';
 import OrdersModal        from '../components/OrdersModal';
@@ -8,36 +8,55 @@ import AIDescriptionModal from '../components/AIDescriptionModal';
 import ReviewSection      from '../components/ReviewSection';
 import './auth.css';
 
-const PRODUCTS = [
-  { id: 1, name: 'Wireless Headphones', cat: 'Electronics', price: 89.99,  rating: 4.8, emoji: '🎧' },
-  { id: 2, name: 'Leather Wallet',      cat: 'Accessories', price: 49.99,  rating: 4.6, emoji: '👜' },
-  { id: 3, name: 'Running Shoes',       cat: 'Footwear',    price: 129.99, rating: 4.9, emoji: '👟' },
-  { id: 4, name: 'Coffee Maker',        cat: 'Appliances',  price: 74.99,  rating: 4.7, emoji: '☕' },
-  { id: 5, name: 'Sunglasses',          cat: 'Accessories', price: 39.99,  rating: 4.5, emoji: '🕶️' },
-  { id: 6, name: 'Yoga Mat',            cat: 'Sports',      price: 34.99,  rating: 4.8, emoji: '🧘' },
-  { id: 7, name: 'Desk Lamp',           cat: 'Home',        price: 55.99,  rating: 4.4, emoji: '💡' },
-  { id: 8, name: 'Backpack',            cat: 'Bags',        price: 69.99,  rating: 4.7, emoji: '🎒' },
-];
+const CATEGORY_EMOJIS = {
+  Electronics: '🎧', Accessories: '👜', Footwear: '👟',
+  Appliances: '☕', Sports: '🧘', Home: '💡', Bags: '🎒',
+  Clothing: '👕', Other: '📦',
+};
 
 const hour     = new Date().getHours();
 const greeting = hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
 
 export default function HomePage({ user, onLogout, cart, setCart }) {
-  const navigate  = useNavigate();
-  const menuRef   = useRef(null);
+  const navigate = useNavigate();
+  const menuRef  = useRef(null);
 
-  // Modal / panel states
-  const [menuOpen,     setMenuOpen]     = useState(false);
-  const [chatOpen,     setChatOpen]     = useState(false);
-  const [profileOpen,  setProfileOpen]  = useState(false);
-  const [ordersOpen,   setOrdersOpen]   = useState(false);
-  const [aiDescOpen,   setAiDescOpen]   = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState(null); // for review modal
+  const [menuOpen,        setMenuOpen]        = useState(false);
+  const [chatOpen,        setChatOpen]        = useState(false);
+  const [profileOpen,     setProfileOpen]     = useState(false);
+  const [ordersOpen,      setOrdersOpen]      = useState(false);
+  const [aiDescOpen,      setAiDescOpen]      = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [activeCategory,  setActiveCategory]  = useState(null);
+  const [currentUser,     setCurrentUser]     = useState(user);
 
-  // Local user state — updated when profile is saved
-  const [currentUser, setCurrentUser] = useState(user);
+  const [products,     setProducts]     = useState([]);
+  const [fetching,     setFetching]     = useState(true);
+  const [searchQuery,  setSearchQuery]  = useState('');
 
   const cartCount = cart.reduce((s, i) => s + i.qty, 0);
+
+  const fetchProducts = useCallback(async () => {
+    setFetching(true);
+    try {
+      const res = await getProducts();
+      setProducts(res.data.results ?? res.data);
+    } catch {
+      console.error('Failed to load products');
+    } finally {
+      setFetching(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchProducts(); }, [fetchProducts]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   const addToCart = (product) => {
     setCart(prev => {
@@ -47,60 +66,42 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
     });
   };
 
-  const initials  = currentUser.first_name
-    ? (currentUser.first_name[0] + (currentUser.last_name?.[0] || '')).toUpperCase()
-    : currentUser.email.slice(0, 2).toUpperCase();
-  const firstName = currentUser.first_name || currentUser.email.split('@')[0];
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handler = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
   const handleLogout = async () => {
     try { await logoutUser(); } catch (_) {}
     onLogout();
     navigate('/');
   };
 
-  // Called by ProfileModal after successful save
   const handleProfileUpdate = (updatedUser) => {
     setCurrentUser(prev => ({ ...prev, ...updatedUser }));
-    // Also update localStorage so session persists
     localStorage.setItem('user', JSON.stringify({ ...currentUser, ...updatedUser }));
   };
 
-  // Dropdown menu items — all now functional
+  const initials  = currentUser.first_name
+    ? (currentUser.first_name[0] + (currentUser.last_name?.[0] || '')).toUpperCase()
+    : currentUser.email.slice(0, 2).toUpperCase();
+  const firstName = currentUser.first_name || currentUser.email.split('@')[0];
+
+  const getEmoji = (p) => CATEGORY_EMOJIS[p.category_name] || '📦';
+
+  const visibleProducts = products.filter(p => {
+    const matchesCategory = !activeCategory || p.category_name === activeCategory;
+    const matchesSearch   = !searchQuery    ||
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.category_name || '').toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
+
   const menuItems = [
-    {
-      icon: '🛒', label: `Cart (${cartCount})`,
-      action: () => { navigate('/cart'); setMenuOpen(false); },
-    },
-    {
-      icon: '👤', label: 'Edit Profile',
-      action: () => { setProfileOpen(true); setMenuOpen(false); },
-    },
-    {
-      icon: '📦', label: 'Track Orders',
-      action: () => { setOrdersOpen(true); setMenuOpen(false); },
-    },
-    {
-      icon: '💬', label: 'Open Chatbot',
-      action: () => { setChatOpen(true); setMenuOpen(false); },
-    },
-    // Seller-only: AI Description Generator
+    { icon: '🛒', label: `Cart (${cartCount})`,   action: () => { navigate('/cart'); setMenuOpen(false); } },
+    { icon: '👤', label: 'Edit Profile',           action: () => { setProfileOpen(true); setMenuOpen(false); } },
+    { icon: '📦', label: 'Track Orders',           action: () => { setOrdersOpen(true); setMenuOpen(false); } },
+    { icon: '💬', label: 'Open Chatbot',           action: () => { setChatOpen(true); setMenuOpen(false); } },
     ...(currentUser.role === 'seller' ? [{
       icon: '✍️', label: 'AI Description Generator',
-      action: () => { navigate("/generate-description"); setMenuOpen(false); },
+      action: () => { navigate('/generate-description'); setMenuOpen(false); },
     }] : []),
-    {
-      icon: '🚪', label: 'Log out',
-      action: handleLogout, danger: true,
-    },
+    { icon: '🚪', label: 'Log out', action: handleLogout, danger: true },
   ];
 
   return (
@@ -117,7 +118,6 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
         </div>
 
         <div className="home-nav-right">
-          {/* Cart icon */}
           <button onClick={() => navigate('/cart')} style={{
             position: 'relative', background: 'none', border: '1.5px solid var(--border)',
             borderRadius: 999, padding: '6px 14px', cursor: 'pointer', display: 'flex',
@@ -176,8 +176,14 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
         </h1>
         <p style={{ color: 'var(--muted)', fontSize: 15 }}>What are you looking for today?</p>
         <div className="home-search">
-          <input placeholder="Search products, categories, brands…" />
-          <button>Search</button>
+          <input
+            placeholder="Search products, categories…"
+            value={searchQuery}
+            onChange={e => { setSearchQuery(e.target.value); setActiveCategory(null); }}
+          />
+          <button onClick={() => setSearchQuery('')}>
+            {searchQuery ? 'Clear' : 'Search'}
+          </button>
         </div>
       </div>
 
@@ -214,42 +220,92 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
 
         {/* Products grid */}
         <div className="section-header">
-          <h2 className="section-title">Recommended Products</h2>
-          <span className="section-link">See all →</span>
+          <h2 className="section-title">
+            {activeCategory ? `${activeCategory} Products` : searchQuery ? `Results for "${searchQuery}"` : 'All Products'}
+          </h2>
+          <span className="section-link" style={{ cursor: 'pointer' }} onClick={() => { setActiveCategory(null); setSearchQuery(''); }}>
+            {(activeCategory || searchQuery) ? 'Clear filter →' : ''}
+          </span>
         </div>
 
-        <div className="products-grid">
-          {PRODUCTS.map((p, i) => (
-            <div className="product-card" key={p.id}
-              style={{ animationDelay: `${0.05 * i}s` }}
-              onClick={() => setSelectedProduct(selectedProduct?.id === p.id ? null : p)}>
-              <div className="product-img">{p.emoji}</div>
-              <div className="product-info">
-                <div className="product-name">{p.name}</div>
-                <div className="product-cat">{p.cat}</div>
-                <div className="product-footer">
-                  <div className="product-price">${p.price}</div>
-                  <div className="product-rating">{p.rating} ★</div>
+        {fetching ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px,1fr))', gap: 20, marginBottom: 32 }}>
+            {[...Array(6)].map((_, i) => (
+              <div key={i} style={{
+                height: 260, borderRadius: 14, border: '1px solid var(--border)',
+                background: 'linear-gradient(90deg, #f5f0e8 25%, #fffdf7 50%, #f5f0e8 75%)',
+                backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite',
+              }} />
+            ))}
+          </div>
+        ) : visibleProducts.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--muted)', marginBottom: 32 }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>🔍</div>
+            <div style={{ fontSize: 16, fontWeight: 600 }}>No products found</div>
+            <div style={{ fontSize: 14, marginTop: 6 }}>Try a different search or category</div>
+          </div>
+        ) : (
+          <div className="products-grid">
+            {visibleProducts.map((p, i) => (
+              <div className="product-card" key={p.id}
+                style={{ animationDelay: `${0.05 * i}s` }}
+                onClick={() => setSelectedProduct(selectedProduct?.id === p.id ? null : p)}>
+
+                <div className="product-img">
+                  {p.image
+                    ? <img
+                        src={p.image.startsWith('http') ? p.image : `http://localhost:8000${p.image.startsWith('/') ? '' : '/'}${p.image}`}
+                        alt={p.name}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    : getEmoji(p)
+                  }
+                </div>
+
+                <div className="product-info">
+                  <div className="product-name">{p.name}</div>
+                  <div className="product-cat">{p.category_name || '—'}</div>
+                  <div className="product-footer">
+                    <div className="product-price">${parseFloat(p.price).toFixed(2)}</div>
+                    <div className="product-rating">
+                      {p.avg_rating > 0 ? `${p.avg_rating} ★` : '—'}
+                    </div>
+                  </div>
+                </div>
+
+                {selectedProduct?.id === p.id && (
+                  <div style={{
+                    padding: '4px 14px', fontSize: 12,
+                    color: 'var(--gold)', fontWeight: 600, background: 'rgba(201,149,42,0.07)',
+                  }}>
+                    ▲ Click again to collapse
+                  </div>
+                )}
+
+                <div style={{ padding: '8px 14px 14px' }} onClick={e => e.stopPropagation()}>
+                  {p.stock > 0 ? (
+                    <button
+                      className="btn btn-primary"
+                      style={{ width: '100%', fontSize: 13, padding: '8px 0' }}
+                      onClick={() => addToCart(p)}>
+                      + Add to Cart
+                    </button>
+                  ) : (
+                    <button
+                      disabled
+                      style={{
+                        width: '100%', fontSize: 13, padding: '8px 0',
+                        background: 'var(--border)', border: 'none', borderRadius: 8,
+                        color: 'var(--muted)', cursor: 'not-allowed',
+                      }}>
+                      Out of Stock
+                    </button>
+                  )}
                 </div>
               </div>
-              {selectedProduct?.id === p.id && (
-                <div style={{
-                  padding: '4px 14px 4px', fontSize: 12,
-                  color: 'var(--gold)', fontWeight: 600, background: 'rgba(201,149,42,0.07)',
-                }}>
-                  ▲ Click again to collapse
-                </div>
-              )}
-              {/* Add to Cart button */}
-              <div style={{ padding: '8px 14px 14px' }} onClick={e => e.stopPropagation()}>
-                <button className="btn btn-primary" style={{ width: '100%', fontSize: 13, padding: '8px 0' }}
-                  onClick={() => addToCart({ ...p, cat: p.cat })}>
-                  + Add to Cart
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         {/* Expanded product — reviews & AI summary */}
         {selectedProduct && (
@@ -261,10 +317,10 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <div>
                 <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 700, marginBottom: 4 }}>
-                  {selectedProduct.emoji} {selectedProduct.name}
+                  {getEmoji(selectedProduct)} {selectedProduct.name}
                 </h3>
                 <div style={{ color: 'var(--muted)', fontSize: 14 }}>
-                  {selectedProduct.cat} · ${selectedProduct.price}
+                  {selectedProduct.category_name} · ${parseFloat(selectedProduct.price).toFixed(2)}
                 </div>
               </div>
               <button onClick={() => setSelectedProduct(null)}
@@ -272,8 +328,6 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
                 ✕
               </button>
             </div>
-
-            {/* Reviews + AI summary — live from backend */}
             <ReviewSection productId={selectedProduct.id} user={currentUser} />
           </div>
         )}
@@ -284,7 +338,17 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
         </div>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 40 }}>
           {['Electronics', 'Footwear', 'Accessories', 'Home', 'Sports', 'Bags', 'Appliances'].map(c => (
-            <button key={c} className="btn btn-ghost" style={{ fontSize: 13 }}>{c}</button>
+            <button key={c}
+              className="btn btn-ghost"
+              style={{
+                fontSize: 13,
+                background:  activeCategory === c ? 'var(--gold)' : '',
+                color:       activeCategory === c ? '#fff' : '',
+                borderColor: activeCategory === c ? 'var(--gold)' : '',
+              }}
+              onClick={() => { setActiveCategory(activeCategory === c ? null : c); setSearchQuery(''); }}>
+              {c}
+            </button>
           ))}
         </div>
       </div>
@@ -300,12 +364,8 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
           onUpdate={handleProfileUpdate}
         />
       )}
-      {ordersOpen && (
-        <OrdersModal onClose={() => setOrdersOpen(false)} />
-      )}
-      {aiDescOpen && (
-        <AIDescriptionModal onClose={() => setAiDescOpen(false)} />
-      )}
+      {ordersOpen  && <OrdersModal        onClose={() => setOrdersOpen(false)} />}
+      {aiDescOpen  && <AIDescriptionModal onClose={() => setAiDescOpen(false)} />}
     </div>
   );
 }

@@ -26,7 +26,7 @@ def generate_description(request):
     import os
     from openai import OpenAI
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-    USE_AI = True  # Change to False to force mock response during development
+    USE_AI = False  # Set to True once OpenAI billing is active
     name     = request.data.get('name', '')
     category = request.data.get('category', '')
     price    = request.data.get('price', '')
