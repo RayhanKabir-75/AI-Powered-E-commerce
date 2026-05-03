@@ -16,13 +16,16 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 # OpenAI client
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def generate_description(request):
     """AI-powered product description generator."""
     # Toggle AI usage
+    import os
+    from openai import OpenAI
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     USE_AI = True  # Change to False to force mock response during development
     name     = request.data.get('name', '')
     category = request.data.get('category', '')
