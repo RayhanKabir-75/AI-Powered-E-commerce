@@ -6,6 +6,7 @@ import LoginPage   from './pages/LoginPage';
 import SignupPage  from './pages/SignupPage';
 import HomePage    from './pages/HomePage';
 import SellerDashboard from './pages/SellerDashboard';
+import CartPage from './pages/CartPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 
 import { logoutUser } from './api/api';
@@ -15,7 +16,8 @@ import ProductDescription from "./components/ProductDescription";
 
 export default function App() {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true); 
+  const [loading, setLoading] = useState(true);
+  const [cart, setCart] = useState([]); 
 
   useEffect(() => {
     const savedUser  = localStorage.getItem('user');
@@ -84,7 +86,7 @@ export default function App() {
           path="/home"
           element={
             user ? (
-              user.role === 'seller' ? <Navigate to="/seller" /> : <HomePage user={user} onLogout={handleLogout} />
+              user.role === 'seller' ? <Navigate to="/seller" /> : <HomePage user={user} onLogout={handleLogout} cart={cart} setCart={setCart} />
             ) : (
               <Navigate to="/login" />
             )
@@ -115,6 +117,17 @@ export default function App() {
         />
 
         {/* Reset Password */}
+        <Route
+          path="/cart"
+          element={
+            user ? (
+              <CartPage cart={cart} setCart={setCart} user={user} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
         <Route
           path="/reset-password/:uid/:token"
           element={<ResetPasswordPage />}
