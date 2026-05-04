@@ -22,7 +22,7 @@ const STATUS_CHOICES = ['pending', 'confirmed', 'shipped', 'delivered', 'cancell
 function KpiCard({ icon, label, value, sub, color }) {
   return (
     <div style={{
-      background: '#fff', borderRadius: 16, border: '1px solid var(--border)',
+      background: 'var(--panel)', borderRadius: 16, border: '1px solid var(--border)',
       padding: '22px 24px', display: 'flex', alignItems: 'center', gap: 18,
     }}>
       <div style={{
@@ -231,7 +231,7 @@ export default function AdminDashboard({ user, onLogout }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20, marginBottom: 20 }}>
 
               {/* Revenue over time */}
-              <div style={{ background: '#fff', borderRadius: 16, border: '1px solid var(--border)', padding: 24 }}>
+              <div style={{ background: 'var(--panel)', borderRadius: 16, border: '1px solid var(--border)', padding: 24 }}>
                 <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 700, marginBottom: 20 }}>
                   Revenue Over Time (last 30 days)
                 </h3>
@@ -255,7 +255,7 @@ export default function AdminDashboard({ user, onLogout }) {
               </div>
 
               {/* Order status donut */}
-              <div style={{ background: '#fff', borderRadius: 16, border: '1px solid var(--border)', padding: 24 }}>
+              <div style={{ background: 'var(--panel)', borderRadius: 16, border: '1px solid var(--border)', padding: 24 }}>
                 <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 700, marginBottom: 20 }}>
                   Order Status Breakdown
                 </h3>
@@ -290,7 +290,7 @@ export default function AdminDashboard({ user, onLogout }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 28 }}>
 
               {/* Top products horizontal bar */}
-              <div style={{ background: '#fff', borderRadius: 16, border: '1px solid var(--border)', padding: 24 }}>
+              <div style={{ background: 'var(--panel)', borderRadius: 16, border: '1px solid var(--border)', padding: 24 }}>
                 <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 700, marginBottom: 20 }}>
                   Top Products by Revenue
                 </h3>
@@ -307,7 +307,7 @@ export default function AdminDashboard({ user, onLogout }) {
                           if (!active || !payload?.length) return null;
                           const d = payload[0].payload;
                           return (
-                            <div style={{ background: '#fff', border: '1px solid var(--border)', padding: '8px 12px', borderRadius: 8, fontSize: 12 }}>
+                            <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', padding: '8px 12px', borderRadius: 8, fontSize: 12 }}>
                               <div style={{ fontWeight: 700, marginBottom: 4 }}>{d.fullName}</div>
                               <div>Revenue: <strong>${d.revenue}</strong></div>
                               <div>Units sold: <strong>{d.units}</strong></div>
@@ -322,7 +322,7 @@ export default function AdminDashboard({ user, onLogout }) {
               </div>
 
               {/* Category revenue bar */}
-              <div style={{ background: '#fff', borderRadius: 16, border: '1px solid var(--border)', padding: 24 }}>
+              <div style={{ background: 'var(--panel)', borderRadius: 16, border: '1px solid var(--border)', padding: 24 }}>
                 <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 700, marginBottom: 20 }}>
                   Revenue by Category
                 </h3>
@@ -343,7 +343,7 @@ export default function AdminDashboard({ user, onLogout }) {
             </div>
 
             {/* Recent orders */}
-            <div style={{ background: '#fff', borderRadius: 16, border: '1px solid var(--border)', padding: 24, marginBottom: 32 }}>
+            <div style={{ background: 'var(--panel)', borderRadius: 16, border: '1px solid var(--border)', padding: 24, marginBottom: 32 }}>
               <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 700, marginBottom: 20 }}>
                 Recent Transactions
               </h3>
@@ -359,7 +359,7 @@ export default function AdminDashboard({ user, onLogout }) {
 
         {/* ════════════════════════ ORDERS TAB ══════════════════════════════ */}
         {activeTab === 'orders' && (
-          <div style={{ background: '#fff', borderRadius: 16, border: '1px solid var(--border)', padding: 24, marginBottom: 32 }}>
+          <div style={{ background: 'var(--panel)', borderRadius: 16, border: '1px solid var(--border)', padding: 24, marginBottom: 32 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
               <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 700 }}>
                 All Orders
@@ -455,7 +455,7 @@ function OrdersTable({ orders, onStatusUpdate, updatingId, showAll }) {
                     style={{
                       border: '1px solid var(--border)', borderRadius: 8,
                       padding: '4px 8px', fontSize: 12, cursor: 'pointer',
-                      background: '#fff', fontFamily: 'inherit',
+                      background: 'var(--panel)', fontFamily: 'inherit',
                       opacity: updatingId === order.id ? 0.5 : 1,
                     }}
                   >

@@ -22,6 +22,12 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState([]);
   const [chatOpen, setChatOpen] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
+
+  useEffect(() => {
+    document.body.classList.toggle('dark', darkMode);
+    localStorage.setItem('theme', darkMode ? 'dark' : 'light');
+  }, [darkMode]);
 
   useEffect(() => {
     const savedUser  = localStorage.getItem('user');
@@ -64,6 +70,14 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <button
+        className="dark-toggle"
+        onClick={() => setDarkMode(d => !d)}
+        title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+      >
+        {darkMode ? '☀️' : '🌙'}
+      </button>
+
       {user?.role === 'customer' && (
         <ChatbotWidget open={chatOpen} onToggle={() => setChatOpen(o => !o)} />
       )}

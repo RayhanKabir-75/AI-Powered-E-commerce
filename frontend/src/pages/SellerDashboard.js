@@ -344,7 +344,7 @@ export default function SellerDashboard({ user, onLogout }) {
         {/* ── Add / Edit Form ─────────────────────────────────────────────── */}
         {showForm && (
           <div style={{
-            background: '#fff', border: '2px solid var(--gold)', borderRadius: 16,
+            background: 'var(--panel)', border: '2px solid var(--gold)', borderRadius: 16,
             padding: 28, marginBottom: 32, animation: 'fadeUp 0.3s ease both',
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
@@ -518,7 +518,7 @@ export default function SellerDashboard({ user, onLogout }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 {orders.map(o => (
                   <div key={o.id} style={{
-                    background: '#fff', border: '1px solid var(--border)',
+                    background: 'var(--panel)', border: '1px solid var(--border)',
                     borderRadius: 14, padding: 20, animation: 'fadeUp 0.3s ease both',
                   }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>

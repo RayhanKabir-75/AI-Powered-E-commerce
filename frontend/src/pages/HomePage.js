@@ -394,7 +394,7 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
         {/* Expanded product — reviews & AI summary */}
         {selectedProduct && (
           <div style={{
-            background: '#fff', borderRadius: 16, padding: '28px',
+            background: 'var(--panel)', borderRadius: 16, padding: '28px',
             border: '2px solid var(--gold)', marginBottom: 32,
             animation: 'fadeUp 0.3s ease both',
           }}>

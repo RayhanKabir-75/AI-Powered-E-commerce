@@ -80,7 +80,7 @@ export default function CartPage({ cart, setCart, user, onLogout }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               {cart.map(item => (
                 <div key={item.id} style={{
-                  background: '#fff', borderRadius: 14, border: '1px solid var(--border)',
+                  background: 'var(--panel)', borderRadius: 14, border: '1px solid var(--border)',
                   padding: 20, display: 'flex', gap: 16, alignItems: 'center',
                   animation: 'fadeUp 0.3s ease both',
                 }}>
@@ -134,7 +134,7 @@ export default function CartPage({ cart, setCart, user, onLogout }) {
 
             {/* ── Order Summary ────────────────────────────────────────── */}
             <div style={{
-              background: '#fff', borderRadius: 16, border: '1px solid var(--border)',
+              background: 'var(--panel)', borderRadius: 16, border: '1px solid var(--border)',
               padding: 24, position: 'sticky', top: 100,
             }}>
               <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, marginBottom: 20 }}>

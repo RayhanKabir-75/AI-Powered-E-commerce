@@ -145,7 +145,7 @@ export default function CheckoutPage({ setCart }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 24, alignItems: 'start' }}>
 
           {/* ── Payment Form ── */}
-          <div style={{ background: '#fff', borderRadius: 16, border: '1px solid var(--border)', padding: 28 }}>
+          <div style={{ background: 'var(--panel)', borderRadius: 16, border: '1px solid var(--border)', padding: 28 }}>
             <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, marginBottom: 22 }}>
               💳 Payment Details
             </h3>
@@ -237,7 +237,7 @@ export default function CheckoutPage({ setCart }) {
           </div>
 
           {/* ── Order Summary ── */}
-          <div style={{ background: '#fff', borderRadius: 16, border: '1px solid var(--border)', padding: 24, position: 'sticky', top: 100 }}>
+          <div style={{ background: 'var(--panel)', borderRadius: 16, border: '1px solid var(--border)', padding: 24, position: 'sticky', top: 100 }}>
             <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 17, fontWeight: 700, marginBottom: 16 }}>
               Order Summary
             </h3>
