@@ -6,8 +6,15 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from django.db import transaction
+from django.db.models import Sum, Count, F
+from django.utils import timezone
+from django.contrib.auth import get_user_model
+from datetime import timedelta
 from .models import Order, OrderItem
 from .serializers import OrderSerializer, OrderItemSerializer, PlaceOrderSerializer
+from products.models import Product
+
+User = get_user_model()
 
 
 # ── List customer's own orders ────────────────────────────────────────────────
@@ -204,3 +211,107 @@ def seller_orders(request):
         result.append(data)
 
     return Response(result)
+
+
+# ── Admin: aggregated stats ───────────────────────────────────────────────────
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def admin_stats(request):
+    if request.user.role != 'admin':
+        return Response({'error': 'Admin only.'}, status=403)
+
+    completed = ['confirmed', 'shipped', 'delivered']
+
+    total_revenue = Order.objects.filter(status__in=completed).aggregate(
+        total=Sum('total')
+    )['total'] or 0
+
+    total_orders    = Order.objects.count()
+    total_customers = User.objects.filter(role='customer').count()
+    total_products  = Product.objects.count()
+
+    # Daily revenue — last 30 days
+    thirty_ago = timezone.now() - timedelta(days=30)
+    daily_revenue = (
+        Order.objects
+        .filter(created_at__gte=thirty_ago, status__in=completed)
+        .extra(select={'day': 'DATE(created_at)'})
+        .values('day')
+        .annotate(revenue=Sum('total'), orders=Count('id'))
+        .order_by('day')
+    )
+
+    # Order status breakdown
+    status_breakdown = Order.objects.values('status').annotate(count=Count('id'))
+
+    # Top 10 products by revenue
+    top_products = (
+        OrderItem.objects
+        .values('product__name')
+        .annotate(
+            units_sold=Sum('quantity'),
+            revenue=Sum(F('quantity') * F('price')),
+        )
+        .order_by('-revenue')[:10]
+    )
+
+    # Revenue by category
+    category_revenue = (
+        OrderItem.objects
+        .values('product__category__name')
+        .annotate(revenue=Sum(F('quantity') * F('price')), units=Sum('quantity'))
+        .order_by('-revenue')
+    )
+
+    recent_orders = Order.objects.prefetch_related('items__product').order_by('-created_at')[:20]
+
+    return Response({
+        'kpis': {
+            'total_revenue':   float(total_revenue),
+            'total_orders':    total_orders,
+            'total_customers': total_customers,
+            'total_products':  total_products,
+        },
+        'daily_revenue': [
+            {'day': str(r['day']), 'revenue': float(r['revenue']), 'orders': r['orders']}
+            for r in daily_revenue
+        ],
+        'status_breakdown': [
+            {'status': r['status'], 'count': r['count']}
+            for r in status_breakdown
+        ],
+        'top_products': [
+            {
+                'name':       r['product__name'],
+                'units_sold': r['units_sold'],
+                'revenue':    float(r['revenue']),
+            }
+            for r in top_products
+        ],
+        'category_revenue': [
+            {
+                'category': r['product__category__name'] or 'Uncategorized',
+                'revenue':  float(r['revenue']),
+                'units':    r['units'],
+            }
+            for r in category_revenue
+        ],
+        'recent_orders': OrderSerializer(recent_orders, many=True).data,
+    })
+
+
+# ── Admin: all orders with optional status filter ─────────────────────────────
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def admin_all_orders(request):
+    if request.user.role != 'admin':
+        return Response({'error': 'Admin only.'}, status=403)
+
+    qs = Order.objects.prefetch_related('items__product').order_by('-created_at')
+    status_filter = request.GET.get('status', '')
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+
+    return Response(OrderSerializer(qs, many=True).data)

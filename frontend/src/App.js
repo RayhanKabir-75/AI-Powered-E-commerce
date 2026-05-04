@@ -6,9 +6,11 @@ import LoginPage   from './pages/LoginPage';
 import SignupPage  from './pages/SignupPage';
 import HomePage    from './pages/HomePage';
 import SellerDashboard from './pages/SellerDashboard';
+import AdminDashboard from './pages/AdminDashboard';
 import CartPage from './pages/CartPage';
 import CheckoutPage from './pages/CheckoutPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import ChatbotWidget from './components/ChatbotWidget';
 
 import { logoutUser } from './api/api';
 
@@ -18,7 +20,8 @@ import ProductDescription from "./components/ProductDescription";
 export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [cart, setCart] = useState([]); 
+  const [cart, setCart] = useState([]);
+  const [chatOpen, setChatOpen] = useState(false);
 
   useEffect(() => {
     const savedUser  = localStorage.getItem('user');
@@ -61,6 +64,9 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      {user?.role === 'customer' && (
+        <ChatbotWidget open={chatOpen} onToggle={() => setChatOpen(o => !o)} />
+      )}
       <Routes>
 
         {/* Landing */}
@@ -70,7 +76,10 @@ export default function App() {
         <Route
           path="/login"
           element={
-            !user ? <LoginPage onLogin={handleLogin} /> : user.role === 'seller' ? <Navigate to="/seller" /> : <Navigate to="/home" />
+            !user ? <LoginPage onLogin={handleLogin} /> :
+            user.role === 'seller' ? <Navigate to="/seller" /> :
+            user.role === 'admin'  ? <Navigate to="/admin"  /> :
+            <Navigate to="/home" />
           }
         />
 
@@ -78,7 +87,10 @@ export default function App() {
         <Route
           path="/signup"
           element={
-            !user ? <SignupPage onLogin={handleLogin} /> : user.role === 'seller' ? <Navigate to="/seller" /> : <Navigate to="/home" />
+            !user ? <SignupPage onLogin={handleLogin} /> :
+            user.role === 'seller' ? <Navigate to="/seller" /> :
+            user.role === 'admin'  ? <Navigate to="/admin"  /> :
+            <Navigate to="/home" />
           }
         />
 
@@ -99,6 +111,17 @@ export default function App() {
           element={
             user ? (
               user.role === 'seller' ? <SellerDashboard user={user} onLogout={handleLogout} /> : <Navigate to="/home" />
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
+        <Route
+          path="/admin"
+          element={
+            user ? (
+              user.role === 'admin' ? <AdminDashboard user={user} onLogout={handleLogout} /> : <Navigate to="/home" />
             ) : (
               <Navigate to="/login" />
             )
@@ -133,7 +156,7 @@ export default function App() {
           path="/checkout"
           element={
             user ? (
-              <CheckoutPage user={user} setCart={setCart} />
+              <CheckoutPage setCart={setCart} />
             ) : (
               <Navigate to="/login" />
             )

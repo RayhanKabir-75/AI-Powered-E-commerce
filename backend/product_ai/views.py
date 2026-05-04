@@ -1,78 +1,65 @@
-from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from rest_framework import status
-import os
 import logging
-from dotenv import load_dotenv
-from openai import OpenAI
-import traceback
+import requests
 
-
-# Load environment variables
-load_dotenv()
-
-# Logger
 logger = logging.getLogger(__name__)
 
-# OpenAI client
-# client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+OLLAMA_URL   = "http://localhost:11434/api/generate"
+OLLAMA_MODEL = "llama3.2"  # change to any model you have pulled locally
+
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def generate_description(request):
-    """AI-powered product description generator."""
-    # Toggle AI usage
-    import os
-    from openai import OpenAI
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-    USE_AI = False  # Set to True once OpenAI billing is active
-    name     = request.data.get('name', '')
-    category = request.data.get('category', '')
-    price    = request.data.get('price', '')
-    features = request.data.get('features', '')
+    """Generate a product description using a local Ollama model."""
+    name     = request.data.get('name', '').strip()
+    category = request.data.get('category', '').strip()
+    price    = request.data.get('price', '').strip()
+    features = request.data.get('features', '').strip()
 
-    def build_mock_description():
-        return f"""
-Introducing the {name} – a premium {category} available for just ${price}.
+    prompt = (
+        f"Write a compelling 2-3 sentence e-commerce product description.\n"
+        f"Product: {name}\n"
+        f"Category: {category}\n"
+        f"Price: ${price}\n"
+        f"Key features: {features}\n"
+        f"Be concise, engaging, and highlight the value to the customer. "
+        f"Return only the description, no headings or bullet points."
+    )
 
-Key Features:
-- {features}
-
-This product delivers outstanding performance, durability, and value for money, making it a perfect choice for modern customers.
-"""
-
-    logger.info(f"Generating description for product: {name}, category: {category}, price: {price}")
-
-    if not USE_AI:
-        description = build_mock_description()
-        logger.info("USE_AI is False; returning mock response instead of calling OpenAI API")
-        return Response({
-            'message': 'Mock response generated because OpenAI API usage is disabled.',
-            'description': description
-        })
-
-    prompt = f"""
-    Write a compelling 2-3 sentence e-commerce product description for:
-    Product: {name}
-    Category: {category}
-    Price: ${price}
-    Key Features: {features}
-    Be engaging, clear, and highlight the value to the customer.
-    """
     try:
-        response = client.chat.completions.create(
-            model    = "gpt-3.5-turbo",
-            messages = [{"role": "user", "content": prompt}],
-            max_tokens = 150,
+        resp = requests.post(
+            OLLAMA_URL,
+            json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False},
+            timeout=60,
         )
-        description = response.choices[0].message.content.strip()
-        logger.info(f"Successfully generated description for {name}")
-        return Response({'description': description})
-    except Exception:
-        logger.exception(f"OpenAI API call failed for product: {name}")
-        description = build_mock_description()
+        resp.raise_for_status()
+        description = resp.json().get("response", "").strip()
+        logger.info("Ollama generated description for: %s", name)
+        return Response({"description": description})
+
+    except requests.exceptions.ConnectionError:
+        logger.warning("Ollama not running — falling back to template")
+        description = _template_description(name, category, price, features)
         return Response({
-            'message': 'OpenAI API failed; mock response generated instead.',
-            'description': description
+            "message": "Ollama is not running. Start it with: ollama serve",
+            "description": description,
         })
+
+    except Exception as exc:
+        logger.exception("Ollama request failed: %s", exc)
+        description = _template_description(name, category, price, features)
+        return Response({
+            "message": "AI generation failed — template used instead.",
+            "description": description,
+        })
+
+
+def _template_description(name, category, price, features):
+    return (
+        f"Introducing the {name} — a premium {category} available for just ${price}. "
+        f"Featuring {features}, it delivers outstanding performance and value. "
+        f"A perfect choice for modern customers who expect quality."
+    )

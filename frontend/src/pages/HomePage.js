@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { logoutUser, getProducts } from '../api/api';
-import ChatbotWidget      from '../components/ChatbotWidget';
+import { logoutUser, getProducts, getRecommendations, trackProductView } from '../api/api';
 import ProfileModal       from '../components/ProfileModal';
 import OrdersModal        from '../components/OrdersModal';
 import AIDescriptionModal from '../components/AIDescriptionModal';
@@ -14,15 +13,14 @@ const CATEGORY_EMOJIS = {
   Clothing: '👕', Other: '📦',
 };
 
-const hour     = new Date().getHours();
-const greeting = hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
-
 export default function HomePage({ user, onLogout, cart, setCart }) {
   const navigate = useNavigate();
   const menuRef  = useRef(null);
 
+  const hour     = new Date().getHours();
+  const greeting = hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
+
   const [menuOpen,        setMenuOpen]        = useState(false);
-  const [chatOpen,        setChatOpen]        = useState(false);
   const [profileOpen,     setProfileOpen]     = useState(false);
   const [ordersOpen,      setOrdersOpen]      = useState(false);
   const [aiDescOpen,      setAiDescOpen]      = useState(false);
@@ -30,9 +28,12 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
   const [activeCategory,  setActiveCategory]  = useState(null);
   const [currentUser,     setCurrentUser]     = useState(user);
 
-  const [products,     setProducts]     = useState([]);
-  const [fetching,     setFetching]     = useState(true);
-  const [searchQuery,  setSearchQuery]  = useState('');
+  const [products,         setProducts]         = useState([]);
+  const [fetching,         setFetching]         = useState(true);
+  const [searchQuery,      setSearchQuery]       = useState('');
+  const [recs,             setRecs]             = useState([]);
+  const [recsFetching,     setRecsFetching]     = useState(true);
+  const [showAllRecs,      setShowAllRecs]      = useState(false);
 
   const cartCount = cart.reduce((s, i) => s + i.qty, 0);
 
@@ -48,7 +49,20 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
     }
   }, []);
 
+  const fetchRecs = useCallback(async () => {
+    setRecsFetching(true);
+    try {
+      const res = await getRecommendations(8);
+      setRecs(res.data);
+    } catch {
+      console.error('Failed to load recommendations');
+    } finally {
+      setRecsFetching(false);
+    }
+  }, []);
+
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
+  useEffect(() => { fetchRecs(); }, [fetchRecs]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -96,7 +110,6 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
     { icon: '🛒', label: `Cart (${cartCount})`,   action: () => { navigate('/cart'); setMenuOpen(false); } },
     { icon: '👤', label: 'Edit Profile',           action: () => { setProfileOpen(true); setMenuOpen(false); } },
     { icon: '📦', label: 'Track Orders',           action: () => { setOrdersOpen(true); setMenuOpen(false); } },
-    { icon: '💬', label: 'Open Chatbot',           action: () => { setChatOpen(true); setMenuOpen(false); } },
     ...(currentUser.role === 'seller' ? [{
       icon: '✍️', label: 'AI Description Generator',
       action: () => { navigate('/generate-description'); setMenuOpen(false); },
@@ -190,13 +203,80 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
       {/* ── Main Content ───────────────────────────────────────────────────── */}
       <div className="home-main">
 
-        {/* AI banner */}
-        <div className="ai-banner">
-          <div className="ai-banner-text">
-            <h3>🤖 AI Picks for You</h3>
-            <p>Based on your browsing history and preferences</p>
+        {/* ── Recommended for You ───────────────────────────────────────── */}
+        <div className="rec-section">
+          <div className="rec-dots" />
+
+          <div className="rec-header">
+            <div>
+              <div className="rec-badge">
+                <span className="rec-badge-dot" />
+                AI Powered
+              </div>
+              <h2 className="rec-title">Picked for <em>You</em></h2>
+              <p className="rec-subtitle">Personalised by AI · Based on your browsing &amp; purchase history</p>
+            </div>
+            {recs.length > 4 && (
+              <button className="rec-view-all" onClick={() => setShowAllRecs(v => !v)}>
+                {showAllRecs ? '↑ Show less' : 'View all →'}
+              </button>
+            )}
           </div>
-          <button className="btn btn-gold" style={{ whiteSpace: 'nowrap' }}>View all →</button>
+
+          {recsFetching ? (
+            <div className="rec-shimmer-grid">
+              {[...Array(4)].map((_, i) => <div key={i} className="rec-shimmer-card" />)}
+            </div>
+          ) : recs.length === 0 ? (
+            <div className="rec-empty">
+              <div style={{ fontSize: 40, marginBottom: 12 }}>🔍</div>
+              <strong>No recommendations yet</strong><br />
+              Browse a few products and we'll personalise this section for you.
+            </div>
+          ) : (
+            <div className={`rec-grid${showAllRecs ? ' expanded' : ''}`}>
+              {(showAllRecs ? recs : recs.slice(0, 4)).map((p) => (
+                <div
+                  key={p.id}
+                  className="rec-card"
+                  onClick={() => {
+                    const isOpening = selectedProduct?.id !== p.id;
+                    setSelectedProduct(isOpening ? p : null);
+                    if (isOpening) trackProductView(p.id).catch(() => {});
+                  }}
+                >
+                  <div className="rec-card-img">
+                    {p.image
+                      ? <img
+                          src={p.image.startsWith('http') ? p.image : `http://localhost:8000${p.image.startsWith('/') ? '' : '/'}${p.image}`}
+                          alt={p.name}
+                        />
+                      : getEmoji(p)
+                    }
+                    {p.category_name && (
+                      <span className="rec-card-cat">{p.category_name}</span>
+                    )}
+                  </div>
+                  <div className="rec-card-body">
+                    <div className="rec-card-name">{p.name}</div>
+                    <div className="rec-card-footer">
+                      <div className="rec-card-price">${parseFloat(p.price).toFixed(2)}</div>
+                      <div className="rec-card-rating">{p.avg_rating > 0 ? `${p.avg_rating} ★` : 'No reviews yet'}</div>
+                      <div onClick={e => e.stopPropagation()}>
+                        {p.stock > 0 ? (
+                          <button className="rec-card-btn" onClick={() => addToCart(p)}>
+                            + Add to Cart
+                          </button>
+                        ) : (
+                          <button className="rec-card-btn" disabled>Out of Stock</button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Seller shortcut */}
@@ -249,7 +329,11 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
             {visibleProducts.map((p, i) => (
               <div className="product-card" key={p.id}
                 style={{ animationDelay: `${0.05 * i}s` }}
-                onClick={() => setSelectedProduct(selectedProduct?.id === p.id ? null : p)}>
+                onClick={() => {
+                  const isOpening = selectedProduct?.id !== p.id;
+                  setSelectedProduct(isOpening ? p : null);
+                  if (isOpening) trackProductView(p.id).catch(() => {});
+                }}>
 
                 <div className="product-img">
                   {p.image
@@ -352,9 +436,6 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
           ))}
         </div>
       </div>
-
-      {/* ── Floating Chatbot ────────────────────────────────────────────────── */}
-      <ChatbotWidget open={chatOpen} onToggle={() => setChatOpen(o => !o)} />
 
       {/* ── Modals ──────────────────────────────────────────────────────────── */}
       {profileOpen && (
