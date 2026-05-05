@@ -1,135 +1,311 @@
-## ⚙️ Prerequisites — install these first
+# ShopAI — AI-Powered E-Commerce Platform
+
+A full-stack e-commerce web application built with **Django REST Framework** and **React**, featuring AI-powered product recommendations, a local LLM chatbot, AI product description generation, and a complete admin analytics dashboard.
+
+---
+
+## Features
+
+### Customer
+- Browse and search a live product catalogue with category filters
+- AI-powered **"Recommended for You"** section personalised by browsing history and purchase behaviour
+- Floating AI chatbot that answers questions about orders, products, and best sellers using real database data
+- Add to cart, proceed to checkout, and complete payment with card validation and a live card preview
+- Track order status and review products
+
+### Seller
+- Dedicated seller dashboard to add, edit, and delete products (with image upload and AI description generation)
+- View incoming orders containing their products
+- AI product description generator powered by a local Llama 3.2 model — no API key required
+
+### Admin
+- Full analytics dashboard with KPI cards (revenue, orders, customers, products)
+- Interactive charts: revenue over time, order status breakdown, top products by revenue, revenue by category
+- Order management table with inline status updates and status filter
+
+### AI (Local — No API Key Needed)
+- **Chatbot**: Answers customer questions using live order and product data as context
+- **Product Descriptions**: Generates compelling listing copy from product details
+- **Recommendations**: Tracks browsing history and purchase patterns to personalise the homepage
+- All AI features use **Ollama (Llama 3.2)** running locally — free, private, no internet required
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Backend | Python 3.11, Django 6, Django REST Framework |
+| Database | MySQL 8 |
+| Frontend | React 19, React Router v7 |
+| Charts | Recharts |
+| AI / LLM | Ollama (Llama 3.2) — runs locally |
+| Auth | DRF Token Authentication + CSRF |
+| Styling | Custom CSS (DM Sans + Playfair Display) |
+
+---
+
+## Prerequisites
+
+Install all of these before starting:
 
 | Tool | Version | Download |
-|------|---------|----------|
+|---|---|---|
 | Python | 3.11+ | https://python.org/downloads |
 | Node.js | 18+ | https://nodejs.org |
-| MySQL | 8+ | https://dev.mysql.com/downloads/installer |
+| MySQL | 8+ | https://dev.mysql.com/downloads |
+| Ollama | latest | https://ollama.com |
 | Git | any | https://git-scm.com |
-| VS Code | any | https://code.visualstudio.com |
 
 Verify everything is installed:
 ```bash
-python --version
+python3 --version
 node --version
 mysql --version
+ollama --version
 git --version
 ```
 
 ---
 
-## SETUP INSTRUCTIONS
+## Setup Instructions
 
-### ─── STEP 1 · Clone the repository ───────────────────────────────────────
+### Step 1 — Clone the repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/shopai.git
-cd shopai
+git clone https://github.com/RayhanKabir-75/AI-Powered-E-commerce.git
+cd AI-Powered-E-commerce
 ```
 
 ---
 
-### ─── STEP 2 · Create the MySQL database ──────────────────────────────────
+### Step 2 — Set up the MySQL database
 
-Open a terminal and log in to MySQL:
+Log in to MySQL and create the database:
 ```bash
 mysql -u root -p
 ```
-Then run this SQL command:
 ```sql
 CREATE DATABASE ecommerce_db;
-exit;
+CREATE USER 'ecom_user'@'localhost' IDENTIFIED BY 'your_password';
+GRANT ALL PRIVILEGES ON ecommerce_db.* TO 'ecom_user'@'localhost';
+FLUSH PRIVILEGES;
+EXIT;
 ```
 
 ---
 
-### ─── STEP 3 · Backend setup ───────────────────────────────────────────────
+### Step 3 — Backend setup
 
-**3A — Open a terminal and go into the backend folder:**
+**3A — Go into the backend folder and create a virtual environment:**
 ```bash
 cd backend
-```
-
-**3B — Create and activate a Python virtual environment:**
-```bash
-# Create
-python -m venv venv
+python3 -m venv ../venv
 
 # Activate on Mac / Linux
-source venv/bin/activate
+source ../venv/bin/activate
 
 # Activate on Windows
-venv\Scripts\activate
+..\venv\Scripts\activate
 ```
-You will see `(venv)` appear at the start of your terminal line.
 
-**3C — Install all Python packages:**
+**3B — Install Python dependencies:**
 ```bash
 pip install -r requirements.txt
 ```
 
-**3D — Create your `.env` file:**
+**3C — Create your `.env` file:**
 
-Create a new file called `.env` inside the `backend/` folder.
-Copy this template and fill in your own values:
+Create a file named `.env` inside the `backend/` folder with the following content:
 ```
 SECRET_KEY=any-long-random-string-you-make-up
 DB_NAME=ecommerce_db
-DB_USER=root
-DB_PASSWORD=your_mysql_root_password
+DB_USER=ecom_user
+DB_PASSWORD=your_password
 DB_HOST=localhost
 DB_PORT=3306
-OPENAI_API_KEY=sk-your-openai-key-here
 ```
 
-> The `.env` file is in `.gitignore`. NEVER commit it to GitHub.
-> Each team member creates their own `.env` with their own DB password.
+> The `.env` file is listed in `.gitignore` — never commit it. Each team member creates their own with their own database credentials.
 
-**3E — Run database migrations:**
+**3D — Apply database migrations:**
 ```bash
-python manage.py makemigrations
-python manage.py migrate
+python3 manage.py migrate
 ```
-You should see Django creating all tables. No errors means success.
 
-**3F — Create an admin user (first time only):**
+**3E — (Optional) Create a superuser for Django admin:**
 ```bash
-python manage.py createsuperuser
+python3 manage.py createsuperuser
 ```
-Enter your email address, first name, last name, and password.
-This creates a regular user. To make them admin, see Step 5 below.
 
-**3G — Start the backend server:**
+**3F — Start the backend server:**
 ```bash
-python manage.py runserver
+python3 manage.py runserver
 ```
+
 Backend is running at: **http://localhost:8000**
 
 ---
 
-### ─── STEP 4 · Frontend setup ──────────────────────────────────────────────
+### Step 4 — Frontend setup
 
-**Open a NEW terminal window** (keep the backend running in the first one).
+Open a **new terminal** (keep the backend running).
 
-**4A — Go into the frontend folder:**
+**4A — Go into the frontend folder and install dependencies:**
 ```bash
 cd frontend
+npm install
 ```
 
-**4B — Install React and create the app (first time only):**
-```bash
-npx create-react-app .
-```
-> If the folder is not empty it will ask — type `y` and press Enter.
-
-**4C — Install required packages:**
-```bash
-npm install axios react-router-dom
-```
-**4D — Start the frontend:**
+**4B — Start the React development server:**
 ```bash
 npm start
 ```
+
 Frontend is running at: **http://localhost:3000**
 
 ---
+
+### Step 5 — Set up Ollama (AI features)
+
+Ollama runs AI models locally on your machine. This powers the chatbot and product description generator.
+
+**5A — Pull the Llama 3.2 model (one-time download, ~2 GB):**
+```bash
+ollama pull llama3.2
+```
+
+**5B — Start the Ollama server (run in a separate terminal, keep it running):**
+```bash
+ollama serve
+```
+
+> If Ollama is not running, AI features fall back gracefully — the chatbot shows an offline message and the description generator uses a template. The rest of the app works normally.
+
+---
+
+### Step 6 — Seed demo data (optional)
+
+To add categories and sample products for testing, log in to MySQL and run:
+
+```sql
+USE ecommerce_db;
+
+INSERT INTO products_category (name) VALUES
+  ('Electronics'), ('Accessories'), ('Footwear'),
+  ('Appliances'), ('Sports'), ('Home'), ('Bags'),
+  ('Clothing'), ('Other');
+```
+
+Then create a seller account via the signup page and add products through the Seller Dashboard.
+
+---
+
+## User Roles
+
+| Role | Access | Default redirect after login |
+|---|---|---|
+| **Customer** | Homepage, cart, checkout, chatbot, order tracking | `/home` |
+| **Seller** | Seller dashboard (own products + incoming orders + AI description tool) | `/seller` |
+| **Admin** | Admin analytics dashboard, all orders | `/admin` |
+
+To set a user's role, update the `role` field in the `users_customuser` table in MySQL, or use the Django admin panel at **http://localhost:8000/admin**.
+
+---
+
+## Project Structure
+
+```
+AI-Powered-E-commerce/
+├── backend/
+│   ├── ecommerce/          # Django project settings & root URLs
+│   ├── users/              # Custom user model, auth endpoints (login, signup, profile)
+│   ├── products/           # Product & category models, browsing history, recommendations
+│   ├── orders/             # Order models, place/cancel/status endpoints, admin stats
+│   ├── product_ai/         # AI product description generator (Ollama)
+│   ├── chatbot/            # AI shopping assistant (Ollama + live DB context)
+│   ├── reviews/            # Product reviews and AI review summaries
+│   └── requirements.txt
+│
+├── frontend/
+│   └── src/
+│       ├── api/api.js      # Axios instance + all API call functions
+│       ├── pages/
+│       │   ├── HomePage.js         # Customer homepage with recommendations
+│       │   ├── SellerDashboard.js  # Seller product & order management
+│       │   ├── AdminDashboard.js   # Admin charts & order management
+│       │   ├── CartPage.js         # Shopping cart
+│       │   ├── CheckoutPage.js     # Payment form & order placement
+│       │   ├── LoginPage.js
+│       │   ├── SignupPage.js
+│       │   └── auth.css            # Global stylesheet
+│       └── components/
+│           ├── ChatbotWidget.js    # Floating AI chat assistant
+│           ├── ReviewSection.js    # Product reviews UI
+│           ├── ProfileModal.js
+│           ├── OrdersModal.js
+│           └── AIDescriptionModal.js
+│
+└── README.md
+```
+
+---
+
+## API Endpoints
+
+### Auth — `/api/auth/`
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `register/` | Create a new account |
+| POST | `login/` | Log in, returns auth token |
+| POST | `logout/` | Invalidate token |
+| GET/PATCH | `profile/` | View or update profile |
+| POST | `password-reset/` | Send reset email |
+
+### Products — `/api/products/`
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `` | List all products (with search & filter) |
+| POST | `` | Create product (seller only) |
+| GET/PATCH/DELETE | `<id>/` | Retrieve, update, or delete a product |
+| GET | `categories/` | List all categories |
+| GET | `recommended/` | Personalised product recommendations |
+| POST | `<id>/view/` | Track a product view (browsing history) |
+| POST | `generate-description/` | AI product description via Ollama |
+
+### Orders — `/api/orders/`
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `` | Customer's own orders |
+| POST | `place/` | Place a new order |
+| GET | `<id>/` | Single order detail |
+| PATCH | `<id>/status/` | Update order status (seller/admin) |
+| POST | `<id>/cancel/` | Cancel a pending order |
+| GET | `seller/` | Orders containing seller's products |
+| GET | `admin/stats/` | Full platform analytics (admin only) |
+| GET | `admin/orders/` | All orders with optional status filter (admin only) |
+
+### Other
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `api/chatbot/` | Send a message to the AI assistant |
+| GET/POST | `api/products/<id>/reviews/` | Get or submit a product review |
+
+---
+
+## Running the Full App
+
+You need **three terminals** running simultaneously:
+
+```bash
+# Terminal 1 — Ollama AI server
+ollama serve
+
+# Terminal 2 — Django backend
+cd backend && source ../venv/bin/activate && python3 manage.py runserver
+
+# Terminal 3 — React frontend
+cd frontend && npm start
+```
+
+Then open **http://localhost:3000** in your browser.

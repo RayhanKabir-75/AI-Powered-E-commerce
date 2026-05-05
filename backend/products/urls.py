@@ -6,12 +6,10 @@ from product_ai import views as product_ai_views
 router = DefaultRouter()
 router.register('', views.ProductViewSet, basename='product')
 
-# Categories has its own router so it doesn't get swallowed by the empty router
-categories_router = DefaultRouter()
-categories_router.register('', views.CategoryViewSet, basename='category')
-
 urlpatterns = [
-    path('generate-description/', product_ai_views.generate_description),
-    path('categories/', include(categories_router.urls)),
+    path('generate-description/',           product_ai_views.generate_description),
+    path('categories/',                     views.CategoryViewSet.as_view({'get': 'list'})),
+    path('recommended/',                    views.recommendations),
+    path('<int:product_id>/view/',          views.track_view),
     path('', include(router.urls)),
 ]

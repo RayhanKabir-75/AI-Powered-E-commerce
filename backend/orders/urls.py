@@ -19,4 +19,8 @@ urlpatterns = [
 
     # GET /api/orders/seller/        — seller's incoming orders
     path('seller/',                      views.seller_orders),
+
+    # Admin endpoints
+    path('admin/stats/',                 views.admin_stats),
+    path('admin/orders/',                views.admin_all_orders),
 ]

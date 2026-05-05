@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createProduct, getProducts, updateProduct, deleteProduct, updateOrderStatus, generateDescription } from '../api/api';
 import API from '../api/api';
@@ -29,30 +29,27 @@ export default function SellerDashboard({ user, onLogout }) {
   const navigate = useNavigate();
   const menuRef  = useRef(null);
 
-  // ── State ────────────────────────────────────────────────────────────────
-  const [tab,          setTab]          = useState('products'); // 'products' | 'orders'
-  const [products,     setProducts]     = useState([]);
-  const [orders,       setOrders]       = useState([]);
-  const [categories,   setCategories]   = useState([]);
-  const [form,         setForm]         = useState(EMPTY_FORM);
-  const [editingId,    setEditingId]    = useState(null);
-  const [showForm,     setShowForm]     = useState(false);
-  const [loading,      setLoading]      = useState(false);
-  const [fetching,     setFetching]     = useState(true);
-  const [aiLoading,    setAiLoading]    = useState(false);
-  const [error,        setError]        = useState('');
-  const [success,      setSuccess]      = useState('');
-  const [deleteId,     setDeleteId]     = useState(null);
-  const [menuOpen,     setMenuOpen]     = useState(false);
-  const [currentUser,  setCurrentUser]  = useState(user);
-  const [aiFeatures,   setAiFeatures]   = useState('');
+  const [tab,        setTab]        = useState('products');
+  const [products,   setProducts]   = useState([]);
+  const [orders,     setOrders]     = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [form,       setForm]       = useState(EMPTY_FORM);
+  const [editingId,  setEditingId]  = useState(null);
+  const [showForm,   setShowForm]   = useState(false);
+  const [loading,    setLoading]    = useState(false);
+  const [fetching,   setFetching]   = useState(true);
+  const [aiLoading,  setAiLoading]  = useState(false);
+  const [error,      setError]      = useState('');
+  const [success,    setSuccess]    = useState('');
+  const [deleteId,   setDeleteId]   = useState(null);
+  const [menuOpen,   setMenuOpen]   = useState(false);
+  const [aiFeatures, setAiFeatures] = useState('');
 
-  const firstName = currentUser.first_name || currentUser.email.split('@')[0];
-  const initials  = currentUser.first_name
-    ? (currentUser.first_name[0] + (currentUser.last_name?.[0] || '')).toUpperCase()
-    : currentUser.email.slice(0, 2).toUpperCase();
+  const firstName = user.first_name || user.email.split('@')[0];
+  const initials  = user.first_name
+    ? (user.first_name[0] + (user.last_name?.[0] || '')).toUpperCase()
+    : user.email.slice(0, 2).toUpperCase();
 
-  // ── Close dropdown on outside click ──────────────────────────────────────
   useEffect(() => {
     const handler = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
@@ -61,38 +58,35 @@ export default function SellerDashboard({ user, onLogout }) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  useEffect(() => { fetchAll(); }, []);
-
-  const fetchAll = () => {
-    fetchProducts();
-    fetchOrders();
-    fetchCategories();
-  };
-
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
       const res = await API.get('products/categories/');
       setCategories(res.data.results ?? res.data);
     } catch { console.error('Failed to load categories'); }
-  };
+  }, []);
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     setFetching(true);
     try {
       const res = await getProducts();
       setProducts(res.data.results ?? res.data);
     } catch { setError('Failed to load products.'); }
     finally { setFetching(false); }
-  };
+  }, []);
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     try {
       const res = await API.get('orders/seller/');
       setOrders(res.data);
     } catch { console.error('Failed to load orders'); }
-  };
+  }, []);
 
-  // ── Form helpers ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    fetchProducts();
+    fetchOrders();
+    fetchCategories();
+  }, [fetchProducts, fetchOrders, fetchCategories]);
+
   const handleChange = (e) => {
     setForm(f => ({ ...f, [e.target.name]: e.target.value }));
     setError('');
@@ -114,6 +108,7 @@ export default function SellerDashboard({ user, onLogout }) {
       stock:       p.stock,
       description: p.description || '',
       image:       p.image || '',
+      imageFile:   null,
     });
     setEditingId(p.id);
     setAiFeatures('');
@@ -128,7 +123,6 @@ export default function SellerDashboard({ user, onLogout }) {
     setError('');
   };
 
-  // ── AI Description Generator ──────────────────────────────────────────────
   const handleGenerateDescription = async () => {
     if (!form.name) { setError('Enter a product name first.'); return; }
     setAiLoading(true);
@@ -149,7 +143,6 @@ export default function SellerDashboard({ user, onLogout }) {
     }
   };
 
-  // ── Submit product (add or edit) ──────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.name || !form.price || !form.category) {
@@ -165,13 +158,13 @@ export default function SellerDashboard({ user, onLogout }) {
       payload.append('category',    parseInt(form.category));
       payload.append('stock',       parseInt(form.stock) || 0);
       payload.append('description', form.description);
-      // Only append image if a file was selected
       if (form.imageFile) payload.append('image', form.imageFile);
+
       if (editingId) {
-        await updateProduct(editingId, payload, { headers: { 'Content-Type': 'multipart/form-data' } });
+        await updateProduct(editingId, payload);
         setSuccess('Product updated!');
       } else {
-        await createProduct(payload, { headers: { 'Content-Type': 'multipart/form-data' } });
+        await createProduct(payload);
         setSuccess('Product added!');
       }
       closeForm();
@@ -184,7 +177,6 @@ export default function SellerDashboard({ user, onLogout }) {
     }
   };
 
-  // ── Delete product ────────────────────────────────────────────────────────
   const confirmDelete = async () => {
     try {
       await deleteProduct(deleteId);
@@ -198,7 +190,6 @@ export default function SellerDashboard({ user, onLogout }) {
     }
   };
 
-  // ── Update order status ───────────────────────────────────────────────────
   const handleStatusChange = async (orderId, newStatus) => {
     try {
       await updateOrderStatus(orderId, newStatus);
@@ -215,7 +206,6 @@ export default function SellerDashboard({ user, onLogout }) {
     navigate('/');
   };
 
-  // ── Stats ─────────────────────────────────────────────────────────────────
   const totalValue    = products.reduce((s, p) => s + (parseFloat(p.price) * (parseInt(p.stock) || 0)), 0);
   const lowStock      = products.filter(p => parseInt(p.stock) < 5).length;
   const pendingOrders = orders.filter(o => o.status === 'pending').length;
@@ -228,6 +218,15 @@ export default function SellerDashboard({ user, onLogout }) {
     { icon: '🧾', label: 'Incoming Orders', action: () => { setTab('orders'); setMenuOpen(false); } },
     { icon: '🚪', label: 'Log out',         action: handleLogout, danger: true },
   ];
+
+  const skeletonStyle = {
+    background: 'linear-gradient(90deg, #f5f0e8 25%, #fffdf7 50%, #f5f0e8 75%)',
+    backgroundSize: '200% 100%',
+    animation: 'shimmer 1.5s infinite',
+    borderRadius: 14,
+    border: '1px solid var(--border)',
+    height: 240,
+  };
 
   return (
     <div className="home page">
@@ -257,8 +256,8 @@ export default function SellerDashboard({ user, onLogout }) {
                 <div className="user-dropdown-header">
                   <div className="user-dropdown-avatar">{initials}</div>
                   <div>
-                    <div className="user-dropdown-name">{currentUser.first_name} {currentUser.last_name}</div>
-                    <div className="user-dropdown-email">{currentUser.email}</div>
+                    <div className="user-dropdown-name">{user.first_name} {user.last_name}</div>
+                    <div className="user-dropdown-email">{user.email}</div>
                   </div>
                 </div>
                 <div className="user-dropdown-divider" />
@@ -284,7 +283,7 @@ export default function SellerDashboard({ user, onLogout }) {
         <p style={{ color: 'var(--muted)', fontSize: 15 }}>Manage your listings and track incoming orders.</p>
         <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
           <button className="btn btn-primary" onClick={openAddForm}>+ Add Product</button>
-          <button className="btn btn-ghost" onClick={() => setTab('orders')}>View Orders →</button>
+          <button className="btn btn-ghost"   onClick={() => setTab('orders')}>View Orders →</button>
         </div>
       </div>
 
@@ -299,10 +298,10 @@ export default function SellerDashboard({ user, onLogout }) {
           </div>
           <div style={{ display: 'flex', gap: 40, flexWrap: 'wrap' }}>
             {[
-              { label: 'Products',      value: products.length,  color: '#fff' },
-              { label: 'Total Value',   value: `$${totalValue.toFixed(0)}`, color: 'var(--gold)' },
-              { label: 'Pending Orders',value: pendingOrders,    color: pendingOrders > 0 ? '#f59e0b' : '#4ade80' },
-              { label: 'Low Stock',     value: lowStock,         color: lowStock > 0 ? '#f87171' : '#4ade80' },
+              { label: 'Products',       value: products.length,             color: '#fff' },
+              { label: 'Total Value',    value: `$${totalValue.toFixed(0)}`, color: 'var(--gold)' },
+              { label: 'Pending Orders', value: pendingOrders,               color: pendingOrders > 0 ? '#f59e0b' : '#4ade80' },
+              { label: 'Low Stock',      value: lowStock,                    color: lowStock > 0 ? '#f87171' : '#4ade80' },
             ].map(s => (
               <div key={s.label} style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 26, fontWeight: 700, color: s.color }}>{s.value}</div>
@@ -316,23 +315,21 @@ export default function SellerDashboard({ user, onLogout }) {
         {success && (
           <div style={{
             background: 'rgba(39,174,96,0.1)', border: '1px solid rgba(39,174,96,0.3)',
-            color: 'var(--success)', padding: '12px 18px', borderRadius: 10,
-            marginBottom: 20, fontSize: 14,
+            color: '#27AE60', padding: '12px 18px', borderRadius: 10, marginBottom: 20, fontSize: 14,
           }}>✓ {success}</div>
         )}
         {error && (
           <div style={{
             background: 'rgba(192,57,43,0.08)', border: '1px solid rgba(192,57,43,0.25)',
-            color: 'var(--danger)', padding: '12px 18px', borderRadius: 10,
-            marginBottom: 20, fontSize: 14,
+            color: 'var(--danger)', padding: '12px 18px', borderRadius: 10, marginBottom: 20, fontSize: 14,
           }}>✗ {error}</div>
         )}
 
         {/* ── Tabs ───────────────────────────────────────────────────────── */}
-        <div style={{ display: 'flex', gap: 4, marginBottom: 28, borderBottom: '2px solid var(--border)', paddingBottom: 0 }}>
+        <div style={{ display: 'flex', gap: 4, marginBottom: 28, borderBottom: '2px solid var(--border)' }}>
           {[
             { key: 'products', label: '📦 My Products' },
-            { key: 'orders',   label: `🧾 Incoming Orders ${pendingOrders > 0 ? `(${pendingOrders} pending)` : ''}` },
+            { key: 'orders',   label: `🧾 Incoming Orders${pendingOrders > 0 ? ` (${pendingOrders} pending)` : ''}` },
           ].map(t => (
             <button key={t.key} onClick={() => setTab(t.key)} style={{
               background: 'none', border: 'none', padding: '10px 20px',
@@ -347,7 +344,7 @@ export default function SellerDashboard({ user, onLogout }) {
         {/* ── Add / Edit Form ─────────────────────────────────────────────── */}
         {showForm && (
           <div style={{
-            background: '#fff', border: '2px solid var(--gold)', borderRadius: 16,
+            background: 'var(--panel)', border: '2px solid var(--gold)', borderRadius: 16,
             padding: 28, marginBottom: 32, animation: 'fadeUp 0.3s ease both',
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
@@ -399,12 +396,9 @@ export default function SellerDashboard({ user, onLogout }) {
                 <label>Product Image</label>
                 <div className="input-wrap">
                   <span className="input-icon">🖼️</span>
-                  <input
-                    type="file"
-                    accept="image/*"
+                  <input type="file" accept="image/*"
                     onChange={e => setForm(f => ({ ...f, imageFile: e.target.files[0] }))}
-                    style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontFamily: 'inherit', fontSize: 14, padding: '4px 0' }}
-                  />
+                    style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontFamily: 'inherit', fontSize: 14, padding: '4px 0' }} />
                 </div>
                 {form.imageFile && (
                   <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
@@ -413,7 +407,7 @@ export default function SellerDashboard({ user, onLogout }) {
                 )}
               </div>
 
-              {/* AI Description Generator */}
+              {/* AI Description */}
               <div className="form-group">
                 <label>Key Features <span style={{ color: 'var(--muted)', fontWeight: 400 }}>(for AI)</span></label>
                 <div className="input-wrap">
@@ -453,15 +447,13 @@ export default function SellerDashboard({ user, onLogout }) {
           <>
             <div className="section-header">
               <h2 className="section-title">My Products</h2>
-              <span className="section-link" onClick={openAddForm}>+ Add new →</span>
+              <button className="link-btn" onClick={openAddForm}>+ Add new →</button>
             </div>
 
             {fetching ? (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px,1fr))', gap: 20 }}>
                 {[...Array(4)].map((_, i) => (
-                  <div key={i} style={{ background: '#fff', borderRadius: 14, border: '1px solid var(--border)', height: 240,
-                    background: 'linear-gradient(90deg, #f5f0e8 25%, #fffdf7 50%, #f5f0e8 75%)',
-                    backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite' }} />
+                  <div key={i} style={skeletonStyle} />
                 ))}
               </div>
             ) : products.length === 0 ? (
@@ -477,10 +469,9 @@ export default function SellerDashboard({ user, onLogout }) {
                   <div className="product-card" key={p.id} style={{ animationDelay: `${0.05 * i}s`, cursor: 'default' }}>
                     <div className="product-img">
                       {p.image
-                        ? <img src={p.image.startsWith('http') ? p.image : `http://localhost:8000${p.image.startsWith('/') ? '' : '/'}${p.image}`} alt={p.name}
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        : getEmoji(p)
-                      }
+                        ? <img src={p.image.startsWith('http') ? p.image : `http://localhost:8000${p.image.startsWith('/') ? '' : '/'}${p.image}`}
+                            alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : getEmoji(p)}
                     </div>
                     <div className="product-info">
                       <div className="product-name">{p.name}</div>
@@ -495,9 +486,12 @@ export default function SellerDashboard({ user, onLogout }) {
                     <div style={{ display: 'flex', gap: 8, padding: '8px 14px 14px' }}>
                       <button className="btn btn-ghost" style={{ flex: 1, fontSize: 12, padding: '6px 0' }}
                         onClick={() => openEditForm(p)}>✏️ Edit</button>
-                      <button style={{ flex: 1, fontSize: 12, padding: '6px 0', background: 'rgba(192,57,43,0.08)',
-                        border: '1.5px solid rgba(192,57,43,0.2)', borderRadius: 8, color: 'var(--danger)', cursor: 'pointer' }}
-                        onClick={() => setDeleteId(p.id)}>🗑 Delete</button>
+                      <button style={{
+                        flex: 1, fontSize: 12, padding: '6px 0',
+                        background: 'rgba(192,57,43,0.08)',
+                        border: '1.5px solid rgba(192,57,43,0.2)',
+                        borderRadius: 8, color: 'var(--danger)', cursor: 'pointer',
+                      }} onClick={() => setDeleteId(p.id)}>🗑 Delete</button>
                     </div>
                   </div>
                 ))}
@@ -511,7 +505,7 @@ export default function SellerDashboard({ user, onLogout }) {
           <>
             <div className="section-header">
               <h2 className="section-title">Incoming Orders</h2>
-              <span className="section-link" onClick={fetchOrders}>↻ Refresh</span>
+              <button className="link-btn" onClick={fetchOrders}>↻ Refresh</button>
             </div>
 
             {orders.length === 0 ? (
@@ -524,8 +518,8 @@ export default function SellerDashboard({ user, onLogout }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 {orders.map(o => (
                   <div key={o.id} style={{
-                    background: '#fff', border: '1px solid var(--border)', borderRadius: 14,
-                    padding: 20, animation: 'fadeUp 0.3s ease both',
+                    background: 'var(--panel)', border: '1px solid var(--border)',
+                    borderRadius: 14, padding: 20, animation: 'fadeUp 0.3s ease both',
                   }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
                       <div>
@@ -535,7 +529,6 @@ export default function SellerDashboard({ user, onLogout }) {
                         </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        {/* Status badge */}
                         <span style={{
                           padding: '4px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600,
                           background: STATUS_COLORS[o.status]?.bg,
@@ -543,10 +536,7 @@ export default function SellerDashboard({ user, onLogout }) {
                         }}>
                           {o.status.charAt(0).toUpperCase() + o.status.slice(1)}
                         </span>
-                        {/* Status updater */}
-                        <select
-                          value={o.status}
-                          onChange={e => handleStatusChange(o.id, e.target.value)}
+                        <select value={o.status} onChange={e => handleStatusChange(o.id, e.target.value)}
                           style={{
                             padding: '6px 10px', borderRadius: 8, border: '1.5px solid var(--border)',
                             fontFamily: 'inherit', fontSize: 13, cursor: 'pointer', outline: 'none',
@@ -558,9 +548,8 @@ export default function SellerDashboard({ user, onLogout }) {
                       </div>
                     </div>
 
-                    {/* Order items */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {o.items.map(item => (
+                      {o.items?.map(item => (
                         <div key={item.id} style={{
                           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                           background: 'var(--cream)', borderRadius: 10, padding: '10px 14px',
@@ -591,7 +580,9 @@ export default function SellerDashboard({ user, onLogout }) {
             <div className="modal-icon">🗑️</div>
             <h3 className="modal-title">Delete Product?</h3>
             <p className="modal-sub">This action cannot be undone. The product will be permanently removed.</p>
-            <button className="btn btn-primary" style={{ background: 'var(--danger)', marginBottom: 10 }} onClick={confirmDelete}>
+            <button className="btn btn-primary"
+              style={{ background: 'var(--danger)', marginBottom: 10, width: '100%', padding: 13, border: 'none', borderRadius: 10, color: '#fff', fontFamily: 'inherit', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}
+              onClick={confirmDelete}>
               Yes, Delete
             </button>
             <button className="modal-cancel" onClick={() => setDeleteId(null)}>Cancel</button>
