@@ -433,7 +433,7 @@ function OrdersTable({ orders, onStatusUpdate, updatingId, showAll }) {
               key={order.id}
               style={{
                 borderBottom: '1px solid var(--border)',
-                background: i % 2 === 0 ? '#fff' : '#fdfaf4',
+                background: i % 2 === 0 ? 'var(--panel)' : 'var(--card)',
               }}
             >
               <td style={{ padding: '10px 12px', fontWeight: 700, color: 'var(--gold)' }}>#{order.id}</td>

@@ -929,6 +929,27 @@ body.dark .modal-overlay { background: rgba(0,0,0,0.7); }
 body.dark .auth-form-side { background: var(--card); }
 body.dark .auth-layout { background: var(--card); }
 
+/* Keep permanently-dark surfaces actually dark in dark mode */
+body.dark .auth-panel  { background: #1A1209; }
+body.dark .ai-banner   { background: #1A1209; }
+body.dark .rec-section { background: #1A1209; }
+
+/* Auth panel text stays white on the dark surface */
+body.dark .auth-panel-title,
+body.dark .auth-panel-logo { color: #fff; }
+body.dark .auth-panel-sub  { color: rgba(255,255,255,0.55); }
+body.dark .auth-testimonial { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); }
+body.dark .auth-testimonial p { color: rgba(255,255,255,0.75); }
+body.dark .auth-author-name { color: #fff; }
+
+/* Seller / admin stat text on dark banners stays white */
+body.dark .ai-banner h3,
+body.dark .ai-banner-text h3 { color: #fff; }
+body.dark .ai-banner-text p  { color: rgba(255,255,255,0.6); }
+
+/* Admin table alternating row — use panel variants */
+body.dark .orders-row-alt { background: var(--card) !important; }
+
 @media (max-width: 480px) {
   .dark-toggle { bottom: 16px; left: 16px; width: 40px; height: 40px; font-size: 17px; }
 }
