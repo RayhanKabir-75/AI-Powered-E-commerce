@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import LogoMark from '../components/LogoMark';
-import { getProduct, trackProductView } from '../api/api';
+import { getProduct, trackProductView, getMediaUrl } from '../api/api';
 import ReviewSection from '../components/ReviewSection';
 
 const CATEGORY_EMOJIS = {
@@ -54,7 +54,7 @@ export default function ProductPage({ user, cart, setCart }) {
   const imageUrl = product?.image
     ? (product.image.startsWith('http')
         ? product.image
-        : `http://localhost:8000${product.image.startsWith('/') ? '' : '/'}${product.image}`)
+        : getMediaUrl(product.image))
     : null;
 
   return (

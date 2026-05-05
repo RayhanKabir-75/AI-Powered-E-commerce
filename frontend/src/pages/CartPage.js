@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LogoMark from '../components/LogoMark';
+import { getMediaUrl } from '../api/api';
 import './auth.css';
 
 export default function CartPage({ cart, setCart, user, onLogout }) {
@@ -93,7 +94,7 @@ export default function CartPage({ cart, setCart, user, onLogout }) {
                     border: '1px solid var(--border)',
                   }}>
                     {item.image
-                      ? <img src={item.image.startsWith('http') ? item.image : `http://localhost:8000${item.image.startsWith('/') ? '' : '/'}${item.image}`}
+                      ? <img src={getMediaUrl(item.image)}
                           alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       : item.emoji || '📦'
                     }

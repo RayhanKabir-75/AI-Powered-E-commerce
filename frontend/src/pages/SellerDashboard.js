@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createProduct, getProducts, updateProduct, deleteProduct, updateOrderStatus, generateDescription } from '../api/api';
+import { createProduct, getProducts, updateProduct, deleteProduct, updateOrderStatus, generateDescription, getMediaUrl } from '../api/api';
 import API from '../api/api';
 import LogoMark from '../components/LogoMark';
 import './auth.css';
@@ -470,7 +470,7 @@ export default function SellerDashboard({ user, onLogout }) {
                   <div className="product-card" key={p.id} style={{ animationDelay: `${0.05 * i}s`, cursor: 'default' }}>
                     <div className="product-img">
                       {p.image
-                        ? <img src={p.image.startsWith('http') ? p.image : `http://localhost:8000${p.image.startsWith('/') ? '' : '/'}${p.image}`}
+                        ? <img src={getMediaUrl(p.image)}
                             alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         : getEmoji(p)}
                     </div>

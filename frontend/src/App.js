@@ -11,6 +11,7 @@ import CartPage from './pages/CartPage';
 import CheckoutPage from './pages/CheckoutPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import ProductPage from './pages/ProductPage';
+import SearchResultsPage from './pages/SearchResultsPage';
 import ChatbotWidget from './components/ChatbotWidget';
 
 import { logoutUser } from './api/api';
@@ -202,6 +203,17 @@ export default function App() {
           element={
             user ? (
               <CheckoutPage setCart={setCart} />
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
+        <Route
+          path="/search"
+          element={
+            user ? (
+              <SearchResultsPage cart={cart} setCart={setCart} />
             ) : (
               <Navigate to="/login" />
             )

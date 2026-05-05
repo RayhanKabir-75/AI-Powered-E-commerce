@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { logoutUser, getProducts, getRecommendations } from '../api/api';
+import { logoutUser, getProducts, getRecommendations, getMediaUrl } from '../api/api';
 import ProfileModal       from '../components/ProfileModal';
 import OrdersModal        from '../components/OrdersModal';
 import LogoMark           from '../components/LogoMark';
@@ -30,7 +30,7 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
 
   const [products,         setProducts]         = useState([]);
   const [fetching,         setFetching]         = useState(true);
-  const [searchQuery,      setSearchQuery]       = useState('');
+  const [searchInput,      setSearchInput]        = useState('');
   const [recs,             setRecs]             = useState([]);
   const [recsFetching,     setRecsFetching]     = useState(true);
   const [showAllRecs,      setShowAllRecs]      = useState(false);
@@ -105,13 +105,14 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
 
   const getEmoji = (p) => CATEGORY_EMOJIS[p.category_name] || '📦';
 
-  const visibleProducts = products.filter(p => {
-    const matchesCategory = !activeCategory || p.category_name === activeCategory;
-    const matchesSearch   = !searchQuery    ||
-      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (p.category_name || '').toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  const visibleProducts = products.filter(p =>
+    !activeCategory || p.category_name === activeCategory
+  );
+
+  const doSearch = () => {
+    const q = searchInput.trim();
+    if (q) navigate(`/search?q=${encodeURIComponent(q)}`);
+  };
 
   const menuItems = [
     { icon: '🛒', label: `Cart (${cartCount})`,   action: () => { navigate('/cart'); setMenuOpen(false); } },
@@ -198,12 +199,11 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
         <div className="home-search">
           <input
             placeholder="Search products, categories…"
-            value={searchQuery}
-            onChange={e => { setSearchQuery(e.target.value); setActiveCategory(null); }}
+            value={searchInput}
+            onChange={e => setSearchInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && doSearch()}
           />
-          <button onClick={() => setSearchQuery('')}>
-            {searchQuery ? 'Clear' : 'Search'}
-          </button>
+          <button onClick={doSearch}>Search</button>
         </div>
       </div>
 
@@ -251,7 +251,7 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
                   <div className="rec-card-img">
                     {p.image
                       ? <img
-                          src={p.image.startsWith('http') ? p.image : `http://localhost:8000${p.image.startsWith('/') ? '' : '/'}${p.image}`}
+                          src={getMediaUrl(p.image)}
                           alt={p.name}
                         />
                       : getEmoji(p)
@@ -304,10 +304,10 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
         {/* Products grid */}
         <div className="section-header">
           <h2 className="section-title">
-            {activeCategory ? `${activeCategory} Products` : searchQuery ? `Results for "${searchQuery}"` : 'All Products'}
+            {activeCategory ? `${activeCategory} Products` : 'All Products'}
           </h2>
-          <span className="section-link" style={{ cursor: 'pointer' }} onClick={() => { setActiveCategory(null); setSearchQuery(''); }}>
-            {(activeCategory || searchQuery) ? 'Clear filter →' : ''}
+          <span className="section-link" style={{ cursor: 'pointer' }} onClick={() => setActiveCategory(null)}>
+            {activeCategory ? 'Clear filter →' : ''}
           </span>
         </div>
 
@@ -338,7 +338,7 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
                 <div className="product-img">
                   {p.image
                     ? <img
-                        src={p.image.startsWith('http') ? p.image : `http://localhost:8000${p.image.startsWith('/') ? '' : '/'}${p.image}`}
+                        src={getMediaUrl(p.image)}
                         alt={p.name}
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       />
@@ -396,7 +396,7 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
                 color:       activeCategory === c ? '#fff' : '',
                 borderColor: activeCategory === c ? 'var(--gold)' : '',
               }}
-              onClick={() => { setActiveCategory(activeCategory === c ? null : c); setSearchQuery(''); }}>
+              onClick={() => setActiveCategory(activeCategory === c ? null : c)}>
               {c}
             </button>
           ))}

@@ -1,10 +1,19 @@
 import axios from 'axios';
 
 // ── Axios instance ──────────────────────────────────────
+const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/';
+
 const API = axios.create({
-  baseURL: 'http://localhost:8000/api/',
-  withCredentials: true, // important for Django session cookies
+  baseURL: BASE_URL,
+  withCredentials: true,
 });
+
+export const getMediaUrl = (path) => {
+  if (!path) return null;
+  if (path.startsWith('http')) return path;
+  const mediaBase = BASE_URL.replace(/\/api\/?$/, '');
+  return `${mediaBase}${path.startsWith('/') ? '' : '/'}${path}`;
+};
 
 // ── CSRF interceptor ────────────────────────────────────
 function getCookie(name) {
