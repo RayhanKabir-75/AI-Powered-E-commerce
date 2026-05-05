@@ -91,7 +91,8 @@ REST_FRAMEWORK = {
 }
 
 # ── CORS & CSRF ───────────────────────────────────────────────────────────────
-FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
+_frontend = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
+FRONTEND_URL = _frontend if _frontend.startswith('http') else f'https://{_frontend}'
 
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
