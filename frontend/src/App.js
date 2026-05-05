@@ -10,19 +10,38 @@ import AdminDashboard from './pages/AdminDashboard';
 import CartPage from './pages/CartPage';
 import CheckoutPage from './pages/CheckoutPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import ProductPage from './pages/ProductPage';
 import ChatbotWidget from './components/ChatbotWidget';
 
 import { logoutUser } from './api/api';
 
-// IMPORT YOUR COMPONENT
 import ProductDescription from "./components/ProductDescription";
+
+// ── Persist cart to localStorage ──────────────────────────────────────────────
+function loadCart() {
+  try {
+    const saved = localStorage.getItem('cart');
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+}
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [cart, setCart] = useState([]);
+  const [cart, setCartState] = useState(loadCart);
   const [chatOpen, setChatOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
+
+  // Wrap setCart to also persist to localStorage
+  const setCart = (updater) => {
+    setCartState(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      try { localStorage.setItem('cart', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
 
   useEffect(() => {
     document.body.classList.toggle('dark', darkMode);
@@ -48,13 +67,15 @@ export default function App() {
 
   const handleLogout = async () => {
     try {
-      await logoutUser(); 
-      console.log("Logged out from server successfully");
+      await logoutUser();
     } catch (err) {
       console.warn("Logout failed on server, clearing anyway", err);
     } finally {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      // Clear cart on logout
+      localStorage.removeItem('cart');
+      setCartState([]);
       setUser(null);
     }
   };
@@ -120,6 +141,18 @@ export default function App() {
           }
         />
 
+        {/* Product Detail */}
+        <Route
+          path="/product/:id"
+          element={
+            user ? (
+              <ProductPage user={user} cart={cart} setCart={setCart} />
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
         <Route
           path="/seller"
           element={
@@ -142,7 +175,6 @@ export default function App() {
           }
         />
 
-        {/*NEW ROUTE: PRODUCT DESCRIPTION */}
         <Route
           path="/generate-description"
           element={
@@ -154,7 +186,6 @@ export default function App() {
           }
         />
 
-        {/* Reset Password */}
         <Route
           path="/cart"
           element={
