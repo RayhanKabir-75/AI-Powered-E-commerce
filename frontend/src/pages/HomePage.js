@@ -1,10 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { logoutUser, getProducts, getRecommendations, trackProductView } from '../api/api';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { logoutUser, getProducts, getRecommendations } from '../api/api';
 import ProfileModal       from '../components/ProfileModal';
 import OrdersModal        from '../components/OrdersModal';
 import AIDescriptionModal from '../components/AIDescriptionModal';
-import ReviewSection      from '../components/ReviewSection';
 import './auth.css';
 
 const CATEGORY_EMOJIS = {
@@ -15,6 +14,7 @@ const CATEGORY_EMOJIS = {
 
 export default function HomePage({ user, onLogout, cart, setCart }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const menuRef  = useRef(null);
 
   const hour     = new Date().getHours();
@@ -24,7 +24,6 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
   const [profileOpen,     setProfileOpen]     = useState(false);
   const [ordersOpen,      setOrdersOpen]      = useState(false);
   const [aiDescOpen,      setAiDescOpen]      = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState(null);
   const [activeCategory,  setActiveCategory]  = useState(null);
   const [currentUser,     setCurrentUser]     = useState(user);
 
@@ -63,6 +62,13 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
   useEffect(() => { fetchRecs(); }, [fetchRecs]);
+
+  // Auto-open orders modal if redirected from order confirmation
+  useEffect(() => {
+    if (location.state?.openOrders) {
+      setOrdersOpen(true);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -239,11 +245,7 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
                 <div
                   key={p.id}
                   className="rec-card"
-                  onClick={() => {
-                    const isOpening = selectedProduct?.id !== p.id;
-                    setSelectedProduct(isOpening ? p : null);
-                    if (isOpening) trackProductView(p.id).catch(() => {});
-                  }}
+                  onClick={() => navigate(`/product/${p.id}`)}
                 >
                   <div className="rec-card-img">
                     {p.image
@@ -329,11 +331,8 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
             {visibleProducts.map((p, i) => (
               <div className="product-card" key={p.id}
                 style={{ animationDelay: `${0.05 * i}s` }}
-                onClick={() => {
-                  const isOpening = selectedProduct?.id !== p.id;
-                  setSelectedProduct(isOpening ? p : null);
-                  if (isOpening) trackProductView(p.id).catch(() => {});
-                }}>
+                onClick={() => navigate(`/product/${p.id}`)}>
+
 
                 <div className="product-img">
                   {p.image
@@ -357,15 +356,6 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
                   </div>
                 </div>
 
-                {selectedProduct?.id === p.id && (
-                  <div style={{
-                    padding: '4px 14px', fontSize: 12,
-                    color: 'var(--gold)', fontWeight: 600, background: 'rgba(201,149,42,0.07)',
-                  }}>
-                    ▲ Click again to collapse
-                  </div>
-                )}
-
                 <div style={{ padding: '8px 14px 14px' }} onClick={e => e.stopPropagation()}>
                   {p.stock > 0 ? (
                     <button
@@ -388,31 +378,6 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
                 </div>
               </div>
             ))}
-          </div>
-        )}
-
-        {/* Expanded product — reviews & AI summary */}
-        {selectedProduct && (
-          <div style={{
-            background: 'var(--panel)', borderRadius: 16, padding: '28px',
-            border: '2px solid var(--gold)', marginBottom: 32,
-            animation: 'fadeUp 0.3s ease both',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <div>
-                <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 700, marginBottom: 4 }}>
-                  {getEmoji(selectedProduct)} {selectedProduct.name}
-                </h3>
-                <div style={{ color: 'var(--muted)', fontSize: 14 }}>
-                  {selectedProduct.category_name} · ${parseFloat(selectedProduct.price).toFixed(2)}
-                </div>
-              </div>
-              <button onClick={() => setSelectedProduct(null)}
-                style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--muted)' }}>
-                ✕
-              </button>
-            </div>
-            <ReviewSection productId={selectedProduct.id} user={currentUser} />
           </div>
         )}
 
