@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import LogoMark from '../components/LogoMark';
 import './auth.css';
 
 export default function LandingPage() {
@@ -10,8 +11,8 @@ export default function LandingPage() {
       <div className="landing-dots" />
 
       <nav className="nav">
-        <div className="nav-logo">
-          <div className="nav-logo-dot" />
+        <div className="nav-logo" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
+          <LogoMark size={34} />
           ShopAI
         </div>
         <div className="nav-actions">

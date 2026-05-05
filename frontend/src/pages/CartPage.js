@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import LogoMark from '../components/LogoMark';
 import './auth.css';
 
 export default function CartPage({ cart, setCart, user, onLogout }) {
@@ -46,11 +47,11 @@ export default function CartPage({ cart, setCart, user, onLogout }) {
 
       {/* ── Nav ──────────────────────────────────────────────────────── */}
       <nav className="home-nav">
-        <div className="nav-logo" style={{
+        <div className="nav-logo" onClick={() => navigate('/home')} style={{
           fontFamily: "'Playfair Display', serif", fontSize: 20,
-          fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8,
+          fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
         }}>
-          <div style={{ width: 7, height: 7, background: 'var(--gold)', borderRadius: '50%' }} />
+          <LogoMark size={34} />
           ShopAI
         </div>
         <div className="home-nav-right">

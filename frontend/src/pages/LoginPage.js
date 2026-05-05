@@ -4,6 +4,7 @@ import { loginUser } from '../api/api';
 import API from '../api/api';
 import { GoogleIcon } from '../components/GoogleIcon';
 import { forgotPassword } from '../api/api';
+import LogoMark from '../components/LogoMark';
 import './auth.css';
 
 const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
@@ -186,7 +187,7 @@ export default function LoginPage({ onLogin }) {
         <div className="auth-panel">
           <div className="auth-panel-bg" />
           <div className="auth-panel-content">
-            <div className="auth-panel-logo"><div className="panel-dot" /> ShopAI</div>
+            <div className="auth-panel-logo"><LogoMark size={32} /> ShopAI</div>
             <h2 className="auth-panel-title">Welcome<br /><em>back.</em></h2>
             <p className="auth-panel-sub">Your personalised AI shopping experience awaits.</p>
             <div className="auth-testimonial">

@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { logoutUser, getProducts, getRecommendations } from '../api/api';
 import ProfileModal       from '../components/ProfileModal';
 import OrdersModal        from '../components/OrdersModal';
+import LogoMark           from '../components/LogoMark';
 import AIDescriptionModal from '../components/AIDescriptionModal';
 import './auth.css';
 
@@ -128,11 +129,11 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
 
       {/* ── Sticky Nav ─────────────────────────────────────────────────────── */}
       <nav className="home-nav">
-        <div className="nav-logo" style={{
+        <div className="nav-logo" onClick={() => navigate('/home')} style={{
           fontFamily: "'Playfair Display', serif", fontSize: 20,
-          fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8,
+          fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
         }}>
-          <div style={{ width: 7, height: 7, background: 'var(--gold)', borderRadius: '50%' }} />
+          <LogoMark size={34} />
           ShopAI
         </div>
 

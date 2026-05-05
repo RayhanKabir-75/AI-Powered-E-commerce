@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { registerUser } from '../api/api';
 import API from '../api/api';
 import { GoogleIcon } from '../components/GoogleIcon';
+import LogoMark from '../components/LogoMark';
 import './auth.css';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -120,7 +121,7 @@ export default function SignupPage({ onLogin }) {
       <div className="auth-panel">
         <div className="auth-panel-bg" />
         <div className="auth-panel-content">
-          <div className="auth-panel-logo"><div className="panel-dot" /> ShopAI</div>
+          <div className="auth-panel-logo"><LogoMark size={32} /> ShopAI</div>
           <h2 className="auth-panel-title">Join the<br /><em>future</em> of<br />shopping.</h2>
           <p className="auth-panel-sub">Create an account and get instant access to AI-powered product discovery.</p>
           <div style={{ marginTop: 40, display: 'flex', flexDirection: 'column', gap: 14 }}>

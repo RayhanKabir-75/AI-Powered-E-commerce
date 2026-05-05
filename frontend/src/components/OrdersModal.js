@@ -73,7 +73,7 @@ export default function OrdersModal({ onClose }) {
             return (
               <div key={order.id} style={{
                 border: '1px solid var(--border)', borderRadius: 12,
-                padding: '16px', marginBottom: 12, background: '#fff',
+                padding: '16px', marginBottom: 12, background: 'var(--panel)',
               }}>
                 {/* Order header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>

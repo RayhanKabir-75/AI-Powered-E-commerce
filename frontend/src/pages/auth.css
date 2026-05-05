@@ -950,6 +950,15 @@ body.dark .ai-banner-text p  { color: rgba(255,255,255,0.6); }
 /* Admin table alternating row — use panel variants */
 body.dark .orders-row-alt { background: var(--card) !important; }
 
+/* Chat widget — surfaces that are intentionally always-dark flip incorrectly in dark mode */
+body.dark .chat-fab { background: var(--gold); color: #1A1209; }
+body.dark .chat-fab:hover { background: var(--gold-light); color: #1A1209; box-shadow: 0 12px 32px rgba(201,149,42,0.45); }
+body.dark .chat-header { background: #1A1209; }
+body.dark .chat-bot-avatar { background: rgba(201,149,42,0.22); }
+body.dark .chat-bubble.user { background: var(--gold); color: #1A1209; }
+body.dark .chat-messages { background: var(--card); }
+body.dark .chat-chips { background: var(--card); }
+
 @media (max-width: 480px) {
   .dark-toggle { bottom: 16px; left: 16px; width: 40px; height: 40px; font-size: 17px; }
 }
