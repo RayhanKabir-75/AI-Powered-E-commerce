@@ -1,102 +1,121 @@
 """
 reviews/ai_utils.py
 -------------------
-All AI and NLP logic for the review system.
+All NLP logic for the review system — no external API keys required.
 
-Two features:
   1. analyze_sentiment()  — classifies a single review comment as
-                            positive / neutral / negative using NLP prompt
-  2. generate_summary()   — reads ALL reviews for a product and produces
-                            a human-readable paragraph summary using GenAI
+                            positive / neutral / negative using VADER (nltk)
+  2. generate_summary()   — builds a human-readable paragraph summary
+                            from all reviews using rule-based NLP
 """
 
-import os
-import openai
+import nltk
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
-openai.api_key = os.getenv('OPENAI_API_KEY')
+# Download the VADER lexicon on first run (idempotent — skips if already present)
+nltk.download('vader_lexicon', quiet=True)
+
+_sia = SentimentIntensityAnalyzer()
 
 
 def analyze_sentiment(comment: str) -> str:
     """
-    NLP Feature:
     Classify a review comment as 'positive', 'neutral', or 'negative'.
-    Returns one of those three strings exactly.
-    Called automatically every time a review is submitted.
+    Uses VADER compound score: >= 0.05 positive, <= -0.05 negative, else neutral.
     """
-    prompt = f"""
-You are a sentiment analysis tool for an e-commerce platform.
-Classify the following customer review into EXACTLY one of these three categories:
-positive, neutral, negative
-
-Reply with ONE word only — no punctuation, no explanation.
-
-Review: "{comment}"
-"""
     try:
-        response = openai.chat.completions.create(
-            model      = "gpt-3.5-turbo",
-            messages   = [{"role": "user", "content": prompt}],
-            max_tokens = 5,
-            temperature= 0,   # deterministic output
-        )
-        result = response.choices[0].message.content.strip().lower()
-        # Validate the response is one of our 3 expected values
-        if result in ['positive', 'neutral', 'negative']:
-            return result
-        return 'neutral'   # safe fallback
+        scores = _sia.polarity_scores(comment)
+        compound = scores['compound']
+        if compound >= 0.10:
+            return 'positive'
+        elif compound <= -0.10:
+            return 'negative'
+        else:
+            return 'neutral'
     except Exception:
-        return 'neutral'   # never crash on AI failure
+        return 'neutral'
 
 
 def generate_summary(product_name: str, reviews: list[dict]) -> str:
     """
-    GenAI + NLP Feature:
-    Takes all reviews for a product and generates a concise, structured
-    summary paragraph that helps customers make quick purchase decisions.
+    Build a 3–4 sentence summary paragraph from all reviews for a product.
 
     reviews: list of dicts like:
         [{'rating': 5, 'comment': '...', 'sentiment': 'positive'}, ...]
-
-    Returns a summary string.
     """
     if not reviews:
         return "No reviews yet for this product."
 
-    # Build a readable list of reviews for the prompt
-    review_lines = "\n".join([
-        f"- Rating: {r['rating']}/5 | Sentiment: {r['sentiment']} | Comment: {r['comment']}"
-        for r in reviews
-    ])
-
-    avg = sum(r['rating'] for r in reviews) / len(reviews)
     total = len(reviews)
+    avg   = sum(r['rating'] for r in reviews) / total
 
-    prompt = f"""
-You are an AI review analyst for an e-commerce platform called ShopAI.
+    pos_reviews = [r for r in reviews if r['sentiment'] == 'positive']
+    neg_reviews = [r for r in reviews if r['sentiment'] == 'negative']
 
-Product: {product_name}
-Total Reviews: {total}
-Average Rating: {avg:.1f}/5
+    pos_pct = len(pos_reviews) / total * 100
+    neg_pct = len(neg_reviews) / total * 100
 
-Customer Reviews:
-{review_lines}
-
-Task: Write a concise 3-4 sentence summary of these reviews for potential buyers.
-Your summary should:
-1. Mention what customers love most
-2. Mention any common complaints or concerns
-3. Give an overall verdict (highly recommended / mixed / not recommended)
-4. Be objective, helpful and neutral in tone
-
-Write the summary as a single paragraph. Do not use bullet points.
-"""
-    try:
-        response = openai.chat.completions.create(
-            model      = "gpt-3.5-turbo",
-            messages   = [{"role": "user", "content": prompt}],
-            max_tokens = 200,
-            temperature= 0.4,
+    # ── Sentence 1: overall sentiment ────────────────────────────────────────
+    if pos_pct >= 70:
+        opening = (
+            f"Customers are overwhelmingly positive about the {product_name}, "
+            f"with {int(pos_pct)}% of reviewers sharing satisfied experiences."
         )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        return f"Summary unavailable at this time. ({str(e)})"
+    elif pos_pct >= 50:
+        opening = (
+            f"The {product_name} has received mostly positive feedback, "
+            f"with {int(pos_pct)}% of customers expressing satisfaction."
+        )
+    elif neg_pct >= 50:
+        opening = (
+            f"The {product_name} has received mixed to negative feedback, "
+            f"with {int(neg_pct)}% of reviewers raising concerns."
+        )
+    else:
+        opening = (
+            f"Customer opinions on the {product_name} are mixed, "
+            f"reflecting a range of different experiences."
+        )
+
+    # ── Sentence 2: representative positive highlight ─────────────────────────
+    highlight = ""
+    if pos_reviews:
+        best = max(pos_reviews, key=lambda r: r['rating'])
+        snippet = best['comment'][:120].rstrip()
+        if len(best['comment']) > 120:
+            snippet += "…"
+        highlight = f' Satisfied buyers highlight: "{snippet}"'
+
+    # ── Sentence 3: representative concern (only if negatives exist) ──────────
+    concern = ""
+    if neg_reviews:
+        worst = min(neg_reviews, key=lambda r: r['rating'])
+        snippet = worst['comment'][:100].rstrip()
+        if len(worst['comment']) > 100:
+            snippet += "…"
+        concern = f' Some customers noted concerns such as: "{snippet}"'
+
+    # ── Sentence 4: overall verdict ───────────────────────────────────────────
+    review_word = "review" if total == 1 else "reviews"
+    if avg >= 4.5:
+        verdict = (
+            f"Overall, with an average of {avg:.1f}/5 across {total} {review_word}, "
+            f"this product is highly recommended."
+        )
+    elif avg >= 3.5:
+        verdict = (
+            f"With an average rating of {avg:.1f}/5 across {total} {review_word}, "
+            f"this product is generally well regarded."
+        )
+    elif avg >= 2.5:
+        verdict = (
+            f"With an average of {avg:.1f}/5 across {total} {review_word}, "
+            f"this product has received mixed reviews — consider the feedback carefully before purchasing."
+        )
+    else:
+        verdict = (
+            f"With an average of only {avg:.1f}/5 across {total} {review_word}, "
+            f"most customers were not satisfied with this product."
+        )
+
+    return opening + highlight + concern + " " + verdict
