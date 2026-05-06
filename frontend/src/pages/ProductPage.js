@@ -10,7 +10,7 @@ const CATEGORY_EMOJIS = {
   Clothing: '👕', Other: '📦',
 };
 
-export default function ProductPage({ user, cart, setCart }) {
+export default function ProductPage({ user, cart, setCart, wishlistIds = new Set(), onToggleWishlist }) {
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -159,12 +159,31 @@ export default function ProductPage({ user, cart, setCart }) {
                     </div>
                   )}
 
-                  <h1 style={{
-                    fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 700,
-                    lineHeight: 1.25, marginBottom: 12,
-                  }}>
-                    {product.name}
-                  </h1>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
+                    <h1 style={{
+                      fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 700,
+                      lineHeight: 1.25, flex: 1, margin: 0,
+                    }}>
+                      {product.name}
+                    </h1>
+                    {onToggleWishlist && (
+                      <button
+                        onClick={() => onToggleWishlist(product.id)}
+                        title={wishlistIds.has(product.id) ? 'Remove from wishlist' : 'Save to wishlist'}
+                        style={{
+                          flexShrink: 0, marginTop: 4,
+                          background: wishlistIds.has(product.id) ? 'rgba(231,76,60,0.08)' : 'var(--cream)',
+                          border: `1.5px solid ${wishlistIds.has(product.id) ? '#e74c3c' : 'var(--border)'}`,
+                          borderRadius: '50%', width: 40, height: 40, cursor: 'pointer',
+                          fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: wishlistIds.has(product.id) ? '#e74c3c' : 'var(--muted)',
+                          transition: 'all 0.2s',
+                        }}
+                      >
+                        {wishlistIds.has(product.id) ? '♥' : '♡'}
+                      </button>
+                    )}
+                  </div>
 
                   {/* Rating */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>

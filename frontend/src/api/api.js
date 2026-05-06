@@ -83,6 +83,10 @@ export const regenerateSummary = (productId) => API.post(`reviews/summary/${prod
 export const getAdminStats  = ()       => API.get('orders/admin/stats/');
 export const getAdminOrders = (params) => API.get('orders/admin/orders/', { params });
 
+// ── Wishlist ──────────────────────────────────────────
+export const getWishlist     = ()           => API.get('wishlist/');
+export const toggleWishlist  = (productId) => API.post('wishlist/toggle/', { product_id: productId });
+
 // ── Chatbot ───────────────────────────────────────────
 export const chatbotSend = (data) => API.post('chatbot/', data);
 

@@ -13,7 +13,7 @@ const CATEGORY_EMOJIS = {
   Clothing: '👕', Other: '📦',
 };
 
-export default function HomePage({ user, onLogout, cart, setCart }) {
+export default function HomePage({ user, onLogout, cart, setCart, wishlistIds = new Set(), onToggleWishlist }) {
   const navigate = useNavigate();
   const location = useLocation();
   const menuRef  = useRef(null);
@@ -116,6 +116,7 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
 
   const menuItems = [
     { icon: '🛒', label: `Cart (${cartCount})`,   action: () => { navigate('/cart'); setMenuOpen(false); } },
+    { icon: '♥',  label: 'My Wishlist',            action: () => { navigate('/wishlist'); setMenuOpen(false); } },
     { icon: '👤', label: 'Edit Profile',           action: () => { setProfileOpen(true); setMenuOpen(false); } },
     { icon: '📦', label: 'Track Orders',           action: () => { setOrdersOpen(true); setMenuOpen(false); } },
     ...(currentUser.role === 'seller' ? [{
@@ -248,16 +249,29 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
                   className="rec-card"
                   onClick={() => navigate(`/product/${p.id}`)}
                 >
-                  <div className="rec-card-img">
+                  <div className="rec-card-img" style={{ position: 'relative' }}>
                     {p.image
-                      ? <img
-                          src={getMediaUrl(p.image)}
-                          alt={p.name}
-                        />
+                      ? <img src={getMediaUrl(p.image)} alt={p.name} />
                       : getEmoji(p)
                     }
                     {p.category_name && (
                       <span className="rec-card-cat">{p.category_name}</span>
+                    )}
+                    {onToggleWishlist && (
+                      <button
+                        onClick={e => { e.stopPropagation(); onToggleWishlist(p.id); }}
+                        title={wishlistIds.has(p.id) ? 'Remove from wishlist' : 'Save to wishlist'}
+                        style={{
+                          position: 'absolute', top: 8, right: 8,
+                          background: 'rgba(255,255,255,0.92)', border: 'none',
+                          borderRadius: '50%', width: 28, height: 28, cursor: 'pointer',
+                          fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
+                          color: wishlistIds.has(p.id) ? '#e74c3c' : '#aaa',
+                        }}
+                      >
+                        {wishlistIds.has(p.id) ? '♥' : '♡'}
+                      </button>
                     )}
                   </div>
                   <div className="rec-card-body">
@@ -335,15 +349,27 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
                 onClick={() => navigate(`/product/${p.id}`)}>
 
 
-                <div className="product-img">
+                <div className="product-img" style={{ position: 'relative' }}>
                   {p.image
-                    ? <img
-                        src={getMediaUrl(p.image)}
-                        alt={p.name}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      />
+                    ? <img src={getMediaUrl(p.image)} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     : getEmoji(p)
                   }
+                  {onToggleWishlist && (
+                    <button
+                      onClick={e => { e.stopPropagation(); onToggleWishlist(p.id); }}
+                      title={wishlistIds.has(p.id) ? 'Remove from wishlist' : 'Save to wishlist'}
+                      style={{
+                        position: 'absolute', top: 8, right: 8,
+                        background: 'rgba(255,255,255,0.92)', border: 'none',
+                        borderRadius: '50%', width: 30, height: 30, cursor: 'pointer',
+                        fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
+                        color: wishlistIds.has(p.id) ? '#e74c3c' : '#aaa',
+                      }}
+                    >
+                      {wishlistIds.has(p.id) ? '♥' : '♡'}
+                    </button>
+                  )}
                 </div>
 
                 <div className="product-info">

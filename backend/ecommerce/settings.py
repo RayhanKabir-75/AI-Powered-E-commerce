@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     'reviews',
     'chatbot',
     'product_ai',
+    'wishlist',
 ]
 
 MIDDLEWARE = [
