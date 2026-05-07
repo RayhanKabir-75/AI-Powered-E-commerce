@@ -13,6 +13,7 @@ from datetime import timedelta
 from .models import Order, OrderItem
 from .serializers import OrderSerializer, OrderItemSerializer, PlaceOrderSerializer
 from products.models import Product
+from emails import send_order_confirmation, send_order_status_update
 
 User = get_user_model()
 
@@ -111,6 +112,8 @@ def place_order(request):
                 product.stock -= quantity
                 product.save()
 
+    send_order_confirmation(order)
+
     return Response(
         OrderSerializer(order).data,
         status=status.HTTP_201_CREATED
@@ -151,6 +154,8 @@ def update_order_status(request, order_id):
 
     order.status = new_status
     order.save()
+
+    send_order_status_update(order)
 
     return Response(OrderSerializer(order).data)
 

@@ -12,8 +12,8 @@ from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from django.contrib.auth import get_user_model
-from django.core.mail import send_mail
 from django.conf import settings
+from emails import send_password_reset
 from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import force_str
 from django.views.decorators.csrf import csrf_exempt
@@ -186,14 +186,7 @@ def forgot_password(request):
     token = token_generator.make_token(user)
 
     reset_link = f"{settings.FRONTEND_URL}/reset-password/{uid}/{token}/"
-    print(f"Password reset link: {reset_link}")
-
-    send_mail(
-        subject="Password Reset",
-        message=f"Click the link to reset your password:\n{reset_link}",
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[email],
-    )
+    send_password_reset(user, reset_link)
 
     return Response({"message": "Reset link sent"})
 

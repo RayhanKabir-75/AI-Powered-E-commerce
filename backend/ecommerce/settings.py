@@ -137,5 +137,29 @@ USE_TZ        = True
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ── Email ─────────────────────────────────────────────────────────────────────
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-EMAIL_USE_TLS = True
+# Uses SMTP when EMAIL_HOST_PASSWORD is present; falls back to console otherwise.
+# Gmail example (.env):
+#   EMAIL_HOST_USER     = you@gmail.com
+#   EMAIL_HOST_PASSWORD = <16-char app password>
+#   DEFAULT_FROM_EMAIL  = ShopAI <you@gmail.com>
+# SendGrid example:
+#   EMAIL_HOST          = smtp.sendgrid.net
+#   EMAIL_HOST_USER     = apikey
+#   EMAIL_HOST_PASSWORD = <sendgrid_api_key>
+if os.environ.get('EMAIL_HOST_PASSWORD'):
+    EMAIL_BACKEND       = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST          = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+    EMAIL_PORT          = int(os.environ.get('EMAIL_PORT', 587))
+    EMAIL_USE_TLS       = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
+    EMAIL_HOST_USER     = os.environ.get('EMAIL_HOST_USER', '')
+    EMAIL_HOST_PASSWORD = os.environ['EMAIL_HOST_PASSWORD']
+else:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+    EMAIL_USE_TLS = True
+
+DEFAULT_FROM_EMAIL = (
+    os.environ.get('DEFAULT_FROM_EMAIL')
+    or os.environ.get('EMAIL_FROM')
+    or os.environ.get('EMAIL_HOST_USER')
+    or 'ShopAI <noreply@shopai.com>'
+)
