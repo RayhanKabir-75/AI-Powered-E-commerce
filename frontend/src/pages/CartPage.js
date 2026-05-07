@@ -10,18 +10,20 @@ export default function CartPage({ cart, setCart, user, onLogout }) {
   const [promoApplied, setPromoApplied] = useState(false);
   const [promoError, setPromoError]     = useState('');
 
-  const updateQty = (id, delta) => {
+  const getKey = (item) => item.cartKey || String(item.id);
+
+  const updateQty = (key, delta) => {
     setCart(prev =>
       prev.map(item =>
-        item.id === id
+        getKey(item) === key
           ? { ...item, qty: Math.max(1, item.qty + delta) }
           : item
       )
     );
   };
 
-  const removeItem = (id) => {
-    setCart(prev => prev.filter(item => item.id !== id));
+  const removeItem = (key) => {
+    setCart(prev => prev.filter(item => getKey(item) !== key));
   };
 
   const subtotal  = cart.reduce((s, item) => s + parseFloat(item.price) * item.qty, 0);
@@ -81,7 +83,7 @@ export default function CartPage({ cart, setCart, user, onLogout }) {
             {/* ── Cart Items ───────────────────────────────────────────── */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               {cart.map(item => (
-                <div key={item.id} style={{
+                <div key={getKey(item)} style={{
                   background: 'var(--panel)', borderRadius: 14, border: '1px solid var(--border)',
                   padding: 20, display: 'flex', gap: 16, alignItems: 'center',
                   animation: 'fadeUp 0.3s ease both',
@@ -94,16 +96,25 @@ export default function CartPage({ cart, setCart, user, onLogout }) {
                     border: '1px solid var(--border)',
                   }}>
                     {item.image
-                      ? <img src={getMediaUrl(item.image)}
-                          alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ? <img src={getMediaUrl(item.image)} alt={item.name}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       : item.emoji || '📦'
                     }
                   </div>
 
                   {/* Info */}
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{item.name}</div>
-                    <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>{item.cat || item.category_name}</div>
+                    <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>{item.name}</div>
+                    {item.variant_name && (
+                      <div style={{
+                        display: 'inline-block', fontSize: 11, fontWeight: 600,
+                        color: 'var(--gold)', background: 'rgba(201,149,42,0.1)',
+                        padding: '2px 8px', borderRadius: 999, marginBottom: 4,
+                      }}>
+                        {item.variant_name}
+                      </div>
+                    )}
+                    <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>{item.cat || item.category_name}</div>
                     <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--gold)' }}>
                       ${(parseFloat(item.price) * item.qty).toFixed(2)}
                     </div>
@@ -111,13 +122,13 @@ export default function CartPage({ cart, setCart, user, onLogout }) {
 
                   {/* Qty controls */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <button onClick={() => updateQty(item.id, -1)} style={{
+                    <button onClick={() => updateQty(getKey(item), -1)} style={{
                       width: 30, height: 30, borderRadius: '50%', border: '1.5px solid var(--border)',
                       background: 'none', cursor: 'pointer', fontSize: 16, display: 'flex',
                       alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s',
                     }}>−</button>
                     <span style={{ fontWeight: 700, fontSize: 15, minWidth: 20, textAlign: 'center' }}>{item.qty}</span>
-                    <button onClick={() => updateQty(item.id, 1)} style={{
+                    <button onClick={() => updateQty(getKey(item), 1)} style={{
                       width: 30, height: 30, borderRadius: '50%', border: '1.5px solid var(--border)',
                       background: 'none', cursor: 'pointer', fontSize: 16, display: 'flex',
                       alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s',
@@ -125,7 +136,7 @@ export default function CartPage({ cart, setCart, user, onLogout }) {
                   </div>
 
                   {/* Remove */}
-                  <button onClick={() => removeItem(item.id)} style={{
+                  <button onClick={() => removeItem(getKey(item))} style={{
                     background: 'rgba(192,57,43,0.08)', border: '1.5px solid rgba(192,57,43,0.2)',
                     color: 'var(--danger)', borderRadius: 8, padding: '6px 12px',
                     cursor: 'pointer', fontSize: 13, transition: 'all 0.15s',

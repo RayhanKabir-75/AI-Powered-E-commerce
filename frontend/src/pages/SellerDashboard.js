@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createProduct, getProducts, updateProduct, deleteProduct, updateOrderStatus, generateDescription, getMediaUrl } from '../api/api';
+import { createProduct, getProducts, updateProduct, deleteProduct, updateOrderStatus, generateDescription, getMediaUrl, getVariants, createVariant, deleteVariant } from '../api/api';
 import API from '../api/api';
 import LogoMark from '../components/LogoMark';
 import './auth.css';
@@ -45,6 +45,11 @@ export default function SellerDashboard({ user, onLogout }) {
   const [deleteId,   setDeleteId]   = useState(null);
   const [menuOpen,   setMenuOpen]   = useState(false);
   const [aiFeatures, setAiFeatures] = useState('');
+
+  // Variant management (edit mode only)
+  const [variants,      setVariants]      = useState([]);
+  const [variantForm,   setVariantForm]   = useState({ name: '', price: '', stock: '' });
+  const [variantLoading, setVariantLoading] = useState(false);
 
   const firstName = user.first_name || user.email.split('@')[0];
   const initials  = user.first_name
@@ -101,7 +106,7 @@ export default function SellerDashboard({ user, onLogout }) {
     setError('');
   };
 
-  const openEditForm = (p) => {
+  const openEditForm = async (p) => {
     setForm({
       name:        p.name,
       price:       p.price,
@@ -113,15 +118,50 @@ export default function SellerDashboard({ user, onLogout }) {
     });
     setEditingId(p.id);
     setAiFeatures('');
+    setVariants([]);
+    setVariantForm({ name: '', price: '', stock: '' });
     setShowForm(true);
     setError('');
+    try {
+      const res = await getVariants(p.id);
+      setVariants(res.data);
+    } catch {}
   };
 
   const closeForm = () => {
     setShowForm(false);
     setEditingId(null);
     setForm(EMPTY_FORM);
+    setVariants([]);
+    setVariantForm({ name: '', price: '', stock: '' });
     setError('');
+  };
+
+  const handleAddVariant = async () => {
+    if (!variantForm.name.trim()) return;
+    setVariantLoading(true);
+    try {
+      const res = await createVariant(editingId, {
+        name:  variantForm.name.trim(),
+        price: variantForm.price ? parseFloat(variantForm.price) : null,
+        stock: parseInt(variantForm.stock) || 0,
+      });
+      setVariants(prev => [...prev, res.data]);
+      setVariantForm({ name: '', price: '', stock: '' });
+    } catch {
+      setError('Failed to add variant.');
+    } finally {
+      setVariantLoading(false);
+    }
+  };
+
+  const handleDeleteVariant = async (variantId) => {
+    try {
+      await deleteVariant(editingId, variantId);
+      setVariants(prev => prev.filter(v => v.id !== variantId));
+    } catch {
+      setError('Failed to delete variant.');
+    }
   };
 
   const handleGenerateDescription = async () => {
@@ -433,6 +473,93 @@ export default function SellerDashboard({ user, onLogout }) {
                   }} />
               </div>
 
+              {/* Variant management — edit mode only */}
+              {editingId && (
+                <div style={{
+                  marginBottom: 20, padding: 16, borderRadius: 12,
+                  border: '1.5px solid var(--border)', background: 'var(--cream)',
+                }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>
+                    🎨 Product Variants <span style={{ fontWeight: 400, color: 'var(--muted)', fontSize: 12 }}>(size, colour, etc.)</span>
+                  </div>
+
+                  {/* Existing variants */}
+                  {variants.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                      {variants.map(v => (
+                        <div key={v.id} style={{
+                          display: 'flex', alignItems: 'center', gap: 6,
+                          background: 'var(--panel)', border: '1px solid var(--border)',
+                          borderRadius: 8, padding: '5px 10px', fontSize: 13,
+                        }}>
+                          <span style={{ fontWeight: 600 }}>{v.name}</span>
+                          {v.price && <span style={{ color: 'var(--gold)' }}>${parseFloat(v.price).toFixed(2)}</span>}
+                          <span style={{ color: 'var(--muted)' }}>· {v.stock} in stock</span>
+                          <button onClick={() => handleDeleteVariant(v.id)} style={{
+                            background: 'none', border: 'none', cursor: 'pointer',
+                            color: 'var(--danger)', fontSize: 14, padding: '0 2px', lineHeight: 1,
+                          }}>✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Add variant form */}
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                    <div style={{ flex: '2 1 120px' }}>
+                      <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4 }}>Option name *</label>
+                      <input
+                        value={variantForm.name}
+                        onChange={e => setVariantForm(f => ({ ...f, name: e.target.value }))}
+                        placeholder="e.g. Large / Blue"
+                        style={{
+                          width: '100%', padding: '8px 10px', border: '1.5px solid var(--border)',
+                          borderRadius: 8, fontFamily: 'inherit', fontSize: 13, outline: 'none',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+                    <div style={{ flex: '1 1 80px' }}>
+                      <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4 }}>Price (optional)</label>
+                      <input
+                        type="number" min="0" step="0.01"
+                        value={variantForm.price}
+                        onChange={e => setVariantForm(f => ({ ...f, price: e.target.value }))}
+                        placeholder="Override"
+                        style={{
+                          width: '100%', padding: '8px 10px', border: '1.5px solid var(--border)',
+                          borderRadius: 8, fontFamily: 'inherit', fontSize: 13, outline: 'none',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+                    <div style={{ flex: '1 1 60px' }}>
+                      <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4 }}>Stock</label>
+                      <input
+                        type="number" min="0"
+                        value={variantForm.stock}
+                        onChange={e => setVariantForm(f => ({ ...f, stock: e.target.value }))}
+                        placeholder="0"
+                        style={{
+                          width: '100%', padding: '8px 10px', border: '1.5px solid var(--border)',
+                          borderRadius: 8, fontFamily: 'inherit', fontSize: 13, outline: 'none',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      style={{ fontSize: 13, padding: '8px 14px', whiteSpace: 'nowrap' }}
+                      onClick={handleAddVariant}
+                      disabled={variantLoading || !variantForm.name.trim()}
+                    >
+                      {variantLoading ? '...' : '+ Add'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
                 <button type="button" className="btn btn-ghost" onClick={closeForm}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={loading}>
@@ -555,7 +682,16 @@ export default function SellerDashboard({ user, onLogout }) {
                           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                           background: 'var(--cream)', borderRadius: 10, padding: '10px 14px',
                         }}>
-                          <div style={{ fontSize: 14, fontWeight: 500 }}>{item.product_name}</div>
+                          <div style={{ fontSize: 14, fontWeight: 500 }}>
+                            {item.product_name}
+                            {item.variant_name && (
+                              <span style={{
+                                fontSize: 10, fontWeight: 600, marginLeft: 6,
+                                color: 'var(--gold)', background: 'rgba(201,149,42,0.1)',
+                                padding: '1px 6px', borderRadius: 999,
+                              }}>{item.variant_name}</span>
+                            )}
+                          </div>
                           <div style={{ fontSize: 13, color: 'var(--muted)' }}>
                             x{item.quantity} · <span style={{ color: 'var(--gold)', fontWeight: 600 }}>${parseFloat(item.price).toFixed(2)}</span>
                           </div>

@@ -91,7 +91,11 @@ export default function CheckoutPage({ setCart }) {
     setError('');
     try {
       const res = await placeOrder({
-        items: cart.map(item => ({ product_id: item.id, quantity: item.qty })),
+        items: cart.map(item => ({
+          product_id: item.id,
+          quantity:   item.qty,
+          ...(item.variant_id ? { variant_id: item.variant_id } : {}),
+        })),
       });
       setOrderId(res.data.id);
       setCart([]);

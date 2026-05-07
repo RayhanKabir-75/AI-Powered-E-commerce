@@ -80,10 +80,9 @@ def place_order(request):
 
     validated_items = serializer.validated_data['items']
 
-    # Calculate total
-    total = sum(item['product'].price * item['quantity'] for item in validated_items)
+    # Calculate total (serializer already resolved per-variant price)
+    total = sum(item['price'] * item['quantity'] for item in validated_items)
 
-    # Use a transaction — if any step fails, everything rolls back
     with transaction.atomic():
         order = Order.objects.create(
             customer=request.user,
@@ -93,18 +92,24 @@ def place_order(request):
 
         for item in validated_items:
             product  = item['product']
+            variant  = item['variant']
             quantity = item['quantity']
 
             OrderItem.objects.create(
                 order    = order,
                 product  = product,
+                variant  = variant,
                 quantity = quantity,
-                price    = product.price,
+                price    = item['price'],
             )
 
-            # Reduce stock
-            product.stock -= quantity
-            product.save()
+            # Reduce stock from variant or product
+            if variant:
+                variant.stock -= quantity
+                variant.save()
+            else:
+                product.stock -= quantity
+                product.save()
 
     return Response(
         OrderSerializer(order).data,
@@ -175,10 +180,13 @@ def cancel_order(request, order_id):
         )
 
     with transaction.atomic():
-        # Restore stock for each item
-        for item in order.items.all():
-            item.product.stock += item.quantity
-            item.product.save()
+        for item in order.items.select_related('variant', 'product').all():
+            if item.variant:
+                item.variant.stock += item.quantity
+                item.variant.save()
+            else:
+                item.product.stock += item.quantity
+                item.product.save()
 
         order.status = 'cancelled'
         order.save()

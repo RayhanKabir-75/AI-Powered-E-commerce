@@ -14,11 +14,12 @@ export default function ProductPage({ user, cart, setCart, wishlistIds = new Set
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [product, setProduct] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [addedToCart, setAddedToCart] = useState(false);
-  const [qty, setQty] = useState(1);
+  const [product,         setProduct]         = useState(null);
+  const [loading,         setLoading]         = useState(true);
+  const [error,           setError]           = useState('');
+  const [addedToCart,     setAddedToCart]     = useState(false);
+  const [qty,             setQty]             = useState(1);
+  const [selectedVariant, setSelectedVariant] = useState(null);
 
   const cartCount = cart.reduce((s, i) => s + i.qty, 0);
 
@@ -37,13 +38,27 @@ export default function ProductPage({ user, cart, setCart, wishlistIds = new Set
     fetch();
   }, [id]);
 
+  const hasVariants  = product?.variants?.length > 0;
+  const activeStock  = selectedVariant ? selectedVariant.stock : (product?.stock ?? 0);
+  const activePrice  = selectedVariant
+    ? parseFloat(selectedVariant.effective_price)
+    : product ? parseFloat(product.price) : 0;
+
   const addToCart = () => {
+    const cartKey = `${product.id}_${selectedVariant?.id || 0}`;
     setCart(prev => {
-      const existing = prev.find(i => i.id === product.id);
+      const existing = prev.find(i => i.cartKey === cartKey);
       if (existing) {
-        return prev.map(i => i.id === product.id ? { ...i, qty: i.qty + qty } : i);
+        return prev.map(i => i.cartKey === cartKey ? { ...i, qty: i.qty + qty } : i);
       }
-      return [...prev, { ...product, qty }];
+      return [...prev, {
+        ...product,
+        cartKey,
+        price:        activePrice,
+        variant_id:   selectedVariant?.id   || null,
+        variant_name: selectedVariant?.name || null,
+        qty,
+      }];
     });
     setAddedToCart(true);
     setTimeout(() => setAddedToCart(false), 2000);
@@ -199,7 +214,12 @@ export default function ProductPage({ user, cart, setCart, wishlistIds = new Set
 
                   {/* Price */}
                   <div style={{ fontSize: 36, fontWeight: 800, color: 'var(--gold)', marginBottom: 16 }}>
-                    ${parseFloat(product.price).toFixed(2)}
+                    ${activePrice.toFixed(2)}
+                    {selectedVariant?.price !== null && selectedVariant && parseFloat(selectedVariant.price) !== parseFloat(product.price) && (
+                      <span style={{ fontSize: 16, color: 'var(--muted)', textDecoration: 'line-through', marginLeft: 10 }}>
+                        ${parseFloat(product.price).toFixed(2)}
+                      </span>
+                    )}
                   </div>
 
                   {/* Description */}
@@ -209,23 +229,63 @@ export default function ProductPage({ user, cart, setCart, wishlistIds = new Set
                     </p>
                   )}
 
+                  {/* Variant selector */}
+                  {hasVariants && (
+                    <div style={{ marginBottom: 20 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
+                        Select Option <span style={{ color: 'var(--danger)', fontSize: 11 }}>*</span>
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                        {product.variants.map(v => (
+                          <button
+                            key={v.id}
+                            onClick={() => setSelectedVariant(selectedVariant?.id === v.id ? null : v)}
+                            style={{
+                              padding: '7px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer',
+                              fontFamily: 'inherit', transition: 'all 0.15s',
+                              border: selectedVariant?.id === v.id
+                                ? '2px solid var(--gold)'
+                                : '1.5px solid var(--border)',
+                              background: selectedVariant?.id === v.id
+                                ? 'rgba(201,149,42,0.1)'
+                                : 'var(--cream)',
+                              color: selectedVariant?.id === v.id ? 'var(--gold)' : 'var(--dark)',
+                              fontWeight: selectedVariant?.id === v.id ? 700 : 400,
+                              opacity: v.stock === 0 ? 0.4 : 1,
+                            }}
+                          >
+                            {v.name}
+                            {v.stock === 0 && <span style={{ fontSize: 10, marginLeft: 4 }}>sold out</span>}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Stock */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 24, fontSize: 13 }}>
                     <div style={{
                       width: 8, height: 8, borderRadius: '50%',
-                      background: product.stock > 0 ? 'var(--success)' : 'var(--danger)',
+                      background: activeStock > 0 ? 'var(--success)' : 'var(--danger)',
                     }} />
-                    {product.stock > 0
-                      ? <span style={{ color: 'var(--success)', fontWeight: 600 }}>In Stock ({product.stock} available)</span>
+                    {activeStock > 0
+                      ? <span style={{ color: 'var(--success)', fontWeight: 600 }}>In Stock ({activeStock} available)</span>
                       : <span style={{ color: 'var(--danger)', fontWeight: 600 }}>Out of Stock</span>
                     }
                   </div>
                 </div>
 
                 {/* Add to Cart */}
-                {product.stock > 0 ? (
+                {hasVariants && !selectedVariant ? (
+                  <button disabled style={{
+                    width: '100%', padding: '14px 0', fontSize: 15, borderRadius: 10,
+                    background: 'var(--cream)', border: '1.5px dashed var(--border)',
+                    color: 'var(--muted)', cursor: 'not-allowed',
+                  }}>
+                    Select an option above
+                  </button>
+                ) : activeStock > 0 ? (
                   <div>
-                    {/* Qty selector */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
                       <span style={{ fontSize: 13, fontWeight: 600 }}>Qty:</span>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -235,14 +295,13 @@ export default function ProductPage({ user, cart, setCart, wishlistIds = new Set
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}>−</button>
                         <span style={{ fontWeight: 700, fontSize: 16, minWidth: 24, textAlign: 'center' }}>{qty}</span>
-                        <button onClick={() => setQty(q => Math.min(product.stock, q + 1))} style={{
+                        <button onClick={() => setQty(q => Math.min(activeStock, q + 1))} style={{
                           width: 32, height: 32, borderRadius: '50%', border: '1.5px solid var(--border)',
                           background: 'none', cursor: 'pointer', fontSize: 18,
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}>+</button>
                       </div>
                     </div>
-
                     <div style={{ display: 'flex', gap: 12 }}>
                       <button
                         className="btn btn-primary"

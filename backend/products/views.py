@@ -5,8 +5,8 @@ from rest_framework.response import Response
 from django.db.models import Count, F
 from django.utils import timezone
 from datetime import timedelta
-from .models import Product, Category, BrowsingHistory
-from .serializers import ProductSerializer, CategorySerializer
+from .models import Product, Category, BrowsingHistory, ProductVariant
+from .serializers import ProductSerializer, CategorySerializer, ProductVariantSerializer
 
 class ProductViewSet(viewsets.ModelViewSet):
     serializer_class = ProductSerializer
@@ -50,6 +50,46 @@ class ProductViewSet(viewsets.ModelViewSet):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("You can only delete your own products.")
         instance.delete()
+
+# ── Product Variants ─────────────────────────────────────────────────────────
+
+@api_view(['GET', 'POST'])
+@permission_classes([AllowAny])
+def variant_list_create(request, product_id):
+    try:
+        product = Product.objects.get(pk=product_id)
+    except Product.DoesNotExist:
+        return Response({'error': 'Product not found.'}, status=404)
+
+    if request.method == 'GET':
+        return Response(ProductVariantSerializer(product.variants.all(), many=True).data)
+
+    # POST — seller only
+    if not request.user.is_authenticated or product.seller != request.user:
+        return Response({'error': 'Only the product seller can add variants.'}, status=403)
+
+    serializer = ProductVariantSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=400)
+    serializer.save(product=product)
+    return Response(serializer.data, status=201)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def variant_delete(request, product_id, variant_id):
+    try:
+        product = Product.objects.get(pk=product_id)
+        variant = ProductVariant.objects.get(pk=variant_id, product=product)
+    except (Product.DoesNotExist, ProductVariant.DoesNotExist):
+        return Response({'error': 'Not found.'}, status=404)
+
+    if product.seller != request.user:
+        return Response({'error': 'Only the product seller can delete variants.'}, status=403)
+
+    variant.delete()
+    return Response(status=204)
+
 
 class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
     queryset         = Category.objects.all()

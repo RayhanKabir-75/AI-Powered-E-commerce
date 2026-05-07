@@ -83,6 +83,11 @@ export const regenerateSummary = (productId) => API.post(`reviews/summary/${prod
 export const getAdminStats  = ()       => API.get('orders/admin/stats/');
 export const getAdminOrders = (params) => API.get('orders/admin/orders/', { params });
 
+// ── Variants ─────────────────────────────────────────
+export const getVariants    = (productId)            => API.get(`products/${productId}/variants/`);
+export const createVariant  = (productId, data)      => API.post(`products/${productId}/variants/`, data);
+export const deleteVariant  = (productId, variantId) => API.delete(`products/${productId}/variants/${variantId}/`);
+
 // ── Wishlist ──────────────────────────────────────────
 export const getWishlist     = ()           => API.get('wishlist/');
 export const toggleWishlist  = (productId) => API.post('wishlist/toggle/', { product_id: productId });

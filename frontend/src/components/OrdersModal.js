@@ -99,7 +99,19 @@ export default function OrdersModal({ onClose }) {
                     fontSize: 13, color: 'var(--dark)',
                     padding: '4px 0', borderTop: i === 0 ? '1px solid var(--border)' : 'none',
                   }}>
-                    <span>{item.product_name} × {item.quantity}</span>
+                    <span>
+                      {item.product_name}
+                      {item.variant_name && (
+                        <span style={{
+                          fontSize: 10, fontWeight: 600, marginLeft: 6,
+                          color: 'var(--gold)', background: 'rgba(201,149,42,0.1)',
+                          padding: '1px 6px', borderRadius: 999,
+                        }}>
+                          {item.variant_name}
+                        </span>
+                      )}
+                      {' '}× {item.quantity}
+                    </span>
                     <span style={{ fontWeight: 600 }}>${item.price}</span>
                   </div>
                 ))}
