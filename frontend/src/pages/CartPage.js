@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LogoMark from '../components/LogoMark';
-import { getMediaUrl } from '../api/api';
+import { getMediaUrl, validatePromo } from '../api/api';
 import './auth.css';
 
 export default function CartPage({ cart, setCart, user, onLogout }) {
   const navigate  = useNavigate();
-  const [promoCode, setPromoCode] = useState('');
-  const [promoApplied, setPromoApplied] = useState(false);
-  const [promoError, setPromoError]     = useState('');
+  const [promoCode,        setPromoCode]        = useState('');
+  const [promoApplied,     setPromoApplied]     = useState(false);
+  const [promoError,       setPromoError]       = useState('');
+  const [promoLoading,     setPromoLoading]     = useState(false);
+  const [discountPercent,  setDiscountPercent]  = useState(0);
+  const [validPromoCode,   setValidPromoCode]   = useState('');
 
   const getKey = (item) => item.cartKey || String(item.id);
 
@@ -26,23 +29,46 @@ export default function CartPage({ cart, setCart, user, onLogout }) {
     setCart(prev => prev.filter(item => getKey(item) !== key));
   };
 
-  const subtotal  = cart.reduce((s, item) => s + parseFloat(item.price) * item.qty, 0);
-  const discount  = promoApplied ? subtotal * 0.1 : 0;
-  const shipping  = subtotal > 100 ? 0 : 9.99;
-  const total     = subtotal - discount + shipping;
+  const subtotal = cart.reduce((s, item) => s + parseFloat(item.price) * item.qty, 0);
+  const discount = promoApplied ? subtotal * (discountPercent / 100) : 0;
+  const shipping = subtotal > 100 ? 0 : 9.99;
+  const total    = subtotal - discount + shipping;
 
-  const handlePromo = () => {
-    if (promoCode.toUpperCase() === 'SHOPAI10') {
-      setPromoApplied(true);
-      setPromoError('');
-    } else {
-      setPromoError('Invalid promo code.');
+  const handlePromo = async () => {
+    if (!promoCode.trim()) return;
+    setPromoLoading(true);
+    setPromoError('');
+    try {
+      const res = await validatePromo(promoCode.trim());
+      if (res.data.valid) {
+        setPromoApplied(true);
+        setDiscountPercent(res.data.discount_percent);
+        setValidPromoCode(res.data.code);
+        setPromoError('');
+      } else {
+        setPromoApplied(false);
+        setDiscountPercent(0);
+        setValidPromoCode('');
+        setPromoError(res.data.error || 'Invalid promo code.');
+      }
+    } catch (err) {
       setPromoApplied(false);
+      setPromoError(err.response?.data?.error || 'Could not validate promo code.');
+    } finally {
+      setPromoLoading(false);
     }
   };
 
+  const handlePromoRemove = () => {
+    setPromoApplied(false);
+    setDiscountPercent(0);
+    setValidPromoCode('');
+    setPromoCode('');
+    setPromoError('');
+  };
+
   const handleCheckout = () => {
-    navigate('/checkout', { state: { cart, total, discount, shipping } });
+    navigate('/checkout', { state: { cart, total, discount, shipping, promoCode: validPromoCode } });
   };
 
   return (
@@ -161,7 +187,7 @@ export default function CartPage({ cart, setCart, user, onLogout }) {
                 </div>
                 {promoApplied && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: 'var(--success)' }}>
-                    <span>Promo (10% off)</span>
+                    <span>{validPromoCode} ({discountPercent}% off)</span>
                     <span>−${discount.toFixed(2)}</span>
                   </div>
                 )}
@@ -184,22 +210,43 @@ export default function CartPage({ cart, setCart, user, onLogout }) {
               {/* Promo code */}
               <div style={{ marginBottom: 20 }}>
                 <label style={{ fontSize: 12, fontWeight: 600, marginBottom: 6, display: 'block' }}>Promo Code</label>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <input
-                    value={promoCode}
-                    onChange={e => { setPromoCode(e.target.value); setPromoError(''); }}
-                    placeholder="Enter code"
-                    style={{
-                      flex: 1, padding: '9px 12px', border: '1.5px solid var(--border)',
-                      borderRadius: 8, fontFamily: 'inherit', fontSize: 13, outline: 'none',
-                    }}
-                  />
-                  <button className="btn btn-ghost" style={{ fontSize: 12, padding: '8px 14px' }} onClick={handlePromo}>
-                    Apply
-                  </button>
-                </div>
-                {promoApplied && <div style={{ fontSize: 12, color: 'var(--success)', marginTop: 4 }}>✓ Promo applied!</div>}
-                {promoError  && <div style={{ fontSize: 12, color: 'var(--danger)',  marginTop: 4 }}>{promoError}</div>}
+                {promoApplied ? (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    background: 'rgba(39,174,96,0.08)', border: '1.5px solid rgba(39,174,96,0.3)',
+                    borderRadius: 8, padding: '9px 12px',
+                  }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--success)' }}>
+                      ✓ {validPromoCode} — {discountPercent}% off
+                    </span>
+                    <button onClick={handlePromoRemove} style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: 'var(--muted)', fontSize: 16, lineHeight: 1,
+                    }}>✕</button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      value={promoCode}
+                      onChange={e => { setPromoCode(e.target.value); setPromoError(''); }}
+                      onKeyDown={e => e.key === 'Enter' && handlePromo()}
+                      placeholder="Enter code"
+                      style={{
+                        flex: 1, padding: '9px 12px', border: '1.5px solid var(--border)',
+                        borderRadius: 8, fontFamily: 'inherit', fontSize: 13, outline: 'none',
+                      }}
+                    />
+                    <button
+                      className="btn btn-ghost"
+                      style={{ fontSize: 12, padding: '8px 14px' }}
+                      onClick={handlePromo}
+                      disabled={promoLoading}
+                    >
+                      {promoLoading ? '…' : 'Apply'}
+                    </button>
+                  </div>
+                )}
+                {promoError && <div style={{ fontSize: 12, color: 'var(--danger)', marginTop: 4 }}>{promoError}</div>}
               </div>
 
               <button className="btn btn-primary" style={{ width: '100%', padding: '14px', fontSize: 15 }}

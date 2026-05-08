@@ -23,4 +23,9 @@ urlpatterns = [
     # Admin endpoints
     path('admin/stats/',                 views.admin_stats),
     path('admin/orders/',                views.admin_all_orders),
+    path('admin/promos/',                views.admin_promos),
+    path('admin/promos/<int:promo_id>/', views.admin_promo_detail),
+
+    # Promo validation (authenticated customers)
+    path('validate-promo/',              views.validate_promo),
 ]

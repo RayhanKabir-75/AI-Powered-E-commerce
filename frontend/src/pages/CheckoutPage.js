@@ -40,7 +40,7 @@ function validatePayment(p) {
 export default function CheckoutPage({ setCart }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { cart = [], total = 0, discount = 0, shipping = 0 } = location.state || {};
+  const { cart = [], total = 0, discount = 0, shipping = 0, promoCode = '' } = location.state || {};
 
   const [step, setStep] = useState(1); // 1 = shipping, 2 = payment
   const [shippingData, setShippingData] = useState(EMPTY_SHIPPING);
@@ -91,6 +91,7 @@ export default function CheckoutPage({ setCart }) {
     setError('');
     try {
       const res = await placeOrder({
+        ...(promoCode ? { promo_code: promoCode } : {}),
         items: cart.map(item => ({
           product_id: item.id,
           quantity:   item.qty,

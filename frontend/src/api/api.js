@@ -79,6 +79,13 @@ export const getReviewSummary = (productId) => API.get(`products/${productId}/re
 export const submitReview = (productId, data) => API.post(`products/${productId}/reviews/`, data);
 export const regenerateSummary = (productId) => API.post(`reviews/summary/${productId}/regenerate/`);
 
+// ── Promo codes ───────────────────────────────────────
+export const validatePromo    = (code) => API.post('orders/validate-promo/', { code });
+export const getPromoCodes    = ()     => API.get('orders/admin/promos/');
+export const createPromoCode  = (data) => API.post('orders/admin/promos/', data);
+export const deletePromoCode  = (id)   => API.delete(`orders/admin/promos/${id}/`);
+export const togglePromoCode  = (id)   => API.patch(`orders/admin/promos/${id}/`);
+
 // ── Admin ─────────────────────────────────────────────
 export const getAdminStats  = ()       => API.get('orders/admin/stats/');
 export const getAdminOrders = (params) => API.get('orders/admin/orders/', { params });

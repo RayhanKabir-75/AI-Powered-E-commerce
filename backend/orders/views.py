@@ -10,8 +10,8 @@ from django.db.models import Sum, Count, F
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 from datetime import timedelta
-from .models import Order, OrderItem
-from .serializers import OrderSerializer, OrderItemSerializer, PlaceOrderSerializer
+from .models import Order, OrderItem, PromoCode
+from .serializers import OrderSerializer, OrderItemSerializer, PlaceOrderSerializer, PromoCodeSerializer
 from products.models import Product
 from emails import send_order_confirmation, send_order_status_update
 
@@ -80,14 +80,32 @@ def place_order(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     validated_items = serializer.validated_data['items']
+    raw_code        = serializer.validated_data.get('promo_code', '').strip().upper()
 
-    # Calculate total (serializer already resolved per-variant price)
-    total = sum(item['price'] * item['quantity'] for item in validated_items)
+    # Validate promo code if provided
+    promo    = None
+    discount = 0
+    if raw_code:
+        try:
+            promo = PromoCode.objects.get(code=raw_code)
+            valid, reason = promo.is_valid
+            if not valid:
+                return Response({'error': reason}, status=status.HTTP_400_BAD_REQUEST)
+        except PromoCode.DoesNotExist:
+            return Response({'error': 'Promo code not found.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Calculate subtotal then apply discount
+    subtotal = sum(item['price'] * item['quantity'] for item in validated_items)
+    if promo:
+        discount = round(subtotal * promo.discount_percent / 100, 2)
+    total = subtotal - discount
 
     with transaction.atomic():
         order = Order.objects.create(
             customer=request.user,
             total=total,
+            discount=discount,
+            promo_code=promo,
             status='pending',
         )
 
@@ -111,6 +129,10 @@ def place_order(request):
             else:
                 product.stock -= quantity
                 product.save()
+
+    # Track promo usage outside the transaction so a rollback doesn't undo it
+    if promo:
+        PromoCode.objects.filter(pk=promo.pk).update(uses_so_far=F('uses_so_far') + 1)
 
     send_order_confirmation(order)
 
@@ -328,3 +350,80 @@ def admin_all_orders(request):
         qs = qs.filter(status=status_filter)
 
     return Response(OrderSerializer(qs, many=True).data)
+
+
+# ── Validate a promo code (any authenticated user) ────────────────────────────
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def validate_promo(request):
+    """
+    POST /api/orders/validate-promo/
+    Body: { "code": "SUMMER10" }
+    Returns: { "valid": true, "discount_percent": 10, "message": "10% off!" }
+    """
+    code = request.data.get('code', '').strip().upper()
+    if not code:
+        return Response({'valid': False, 'error': 'No code provided.'}, status=400)
+
+    try:
+        promo = PromoCode.objects.get(code=code)
+    except PromoCode.DoesNotExist:
+        return Response({'valid': False, 'error': 'Invalid promo code.'})
+
+    valid, reason = promo.is_valid
+    if not valid:
+        return Response({'valid': False, 'error': reason})
+
+    return Response({
+        'valid':            True,
+        'code':             promo.code,
+        'discount_percent': promo.discount_percent,
+        'message':          f'{promo.discount_percent}% off your order!',
+    })
+
+
+# ── Admin: promo code management ──────────────────────────────────────────────
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def admin_promos(request):
+    if request.user.role != 'admin':
+        return Response({'error': 'Admin only.'}, status=403)
+
+    if request.method == 'GET':
+        promos = PromoCode.objects.order_by('-created_at')
+        return Response(PromoCodeSerializer(promos, many=True).data)
+
+    # POST — create new promo
+    code = request.data.get('code', '').strip().upper()
+    if not code:
+        return Response({'error': 'Code is required.'}, status=400)
+
+    data = {**request.data, 'code': code}
+    serializer = PromoCodeSerializer(data=data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=400)
+    serializer.save()
+    return Response(serializer.data, status=201)
+
+
+@api_view(['DELETE', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def admin_promo_detail(request, promo_id):
+    if request.user.role != 'admin':
+        return Response({'error': 'Admin only.'}, status=403)
+
+    try:
+        promo = PromoCode.objects.get(pk=promo_id)
+    except PromoCode.DoesNotExist:
+        return Response({'error': 'Not found.'}, status=404)
+
+    if request.method == 'DELETE':
+        promo.delete()
+        return Response(status=204)
+
+    # PATCH — toggle active
+    promo.is_active = not promo.is_active
+    promo.save()
+    return Response(PromoCodeSerializer(promo).data)
