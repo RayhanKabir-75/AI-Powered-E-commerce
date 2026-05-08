@@ -38,6 +38,22 @@ class Review(models.Model):
         return f"{self.customer_id} → {self.product.name} ({self.rating}★)"
 
 
+class ReviewHelpfulVote(models.Model):
+    """One helpful-vote per user per review — toggled via POST /api/reviews/<id>/vote/"""
+    review = models.ForeignKey(Review, on_delete=models.CASCADE, related_name='helpfulvote_set')
+    user   = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        to_field='email',
+    )
+
+    class Meta:
+        unique_together = ('review', 'user')
+
+    def __str__(self):
+        return f"{self.user_id} found review #{self.review_id} helpful"
+
+
 class ProductReviewSummary(models.Model):
     """
     Stores the AI-generated NLP summary for a product's reviews.
