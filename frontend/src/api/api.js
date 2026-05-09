@@ -74,11 +74,11 @@ export const updateOrderStatus = (id, status) => API.patch(`orders/${id}/status/
 export const cancelOrder = (id) => API.post(`orders/${id}/cancel/`);
 
 // ── Reviews ────────────────────────────────────────────
-export const getReviews       = (productId) => API.get(`products/${productId}/reviews/`);
-export const getReviewSummary = (productId) => API.get(`products/${productId}/reviews/summary/`);
-export const submitReview     = (productId, data) => API.post(`products/${productId}/reviews/`, data);
+export const getReviews        = (productId) => API.get('reviews/', { params: { product: productId } });
+export const getReviewSummary  = (productId) => API.get(`reviews/summary/${productId}/`);
+export const submitReview      = (data)      => API.post('reviews/submit/', data);
 export const regenerateSummary = (productId) => API.post(`reviews/summary/${productId}/regenerate/`);
-export const voteReview       = (reviewId) => API.post(`reviews/${reviewId}/vote/`);
+export const voteReview        = (reviewId)  => API.post(`reviews/${reviewId}/vote/`);
 
 // ── Promo codes ───────────────────────────────────────
 export const validatePromo    = (code) => API.post('orders/validate-promo/', { code });
