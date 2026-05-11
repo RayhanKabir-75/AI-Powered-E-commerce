@@ -125,7 +125,7 @@ export default function App() {
       </button>
 
       {user?.role === 'customer' && (
-        <ChatbotWidget open={chatOpen} onToggle={() => setChatOpen(o => !o)} />
+        <ChatbotWidget open={chatOpen} onToggle={() => setChatOpen(o => !o)} setCart={setCart} />
       )}
       <Routes>
 

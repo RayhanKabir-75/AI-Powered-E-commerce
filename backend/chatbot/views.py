@@ -1,3 +1,4 @@
+import re
 import requests
 import logging
 from rest_framework.decorators import api_view, permission_classes
@@ -11,6 +12,40 @@ logger = logging.getLogger(__name__)
 
 OLLAMA_URL   = "http://localhost:11434/api/chat"
 OLLAMA_MODEL = "llama3.2"
+
+
+_CART_PATTERNS = [
+    r'add\s+(.+?)\s+to\s+(?:my\s+)?cart',
+    r'add\s+(.+?)\s+in(?:to)?\s+(?:my\s+)?cart',
+    r'put\s+(.+?)\s+in(?:to)?\s+(?:my\s+)?cart',
+]
+_FILLER = re.compile(r'\b(a|an|the|some|my|this|that|please)\b')
+
+
+def _detect_cart_query(message: str):
+    """Return the product search term if the message is an add-to-cart request."""
+    msg = message.lower().strip()
+    for pattern in _CART_PATTERNS:
+        m = re.search(pattern, msg)
+        if m:
+            query = _FILLER.sub('', m.group(1)).strip()
+            return query or None
+    return None
+
+
+def _find_product(query: str):
+    """Find the best matching in-stock product for a search term."""
+    # Try the full phrase first
+    product = Product.objects.filter(stock__gt=0, name__icontains=query).first()
+    if product:
+        return product
+    # Fall back to individual significant words
+    for word in query.split():
+        if len(word) > 3:
+            product = Product.objects.filter(stock__gt=0, name__icontains=word).first()
+            if product:
+                return product
+    return None
 
 
 def _build_system_prompt(user):
@@ -76,6 +111,8 @@ Instructions:
 - To track an order, look up the customer's orders listed above and report the status.
 - To recommend products, use the best sellers or search the product list above.
 - To find a product by name or category, search the product list above.
+- If a customer asks to add something to their cart, confirm the EXACT product name and price from the product list above. The system handles the actual cart update — just confirm what you found.
+- If the product has variants (sizes, colours), tell the customer to visit the product page to pick their option before adding.
 - Keep responses short and friendly — 2 to 4 sentences maximum.
 - If the customer asks about something not in the data above, politely say you don't have that information.
 - Never make up order statuses, prices, or product names.
@@ -91,8 +128,35 @@ def chat(request):
     if not user_message:
         return Response({'error': 'Message is required.'}, status=400)
 
-    system_prompt = _build_system_prompt(request.user)
+    # ── Detect add-to-cart intent before calling Ollama ───────────────────────
+    action = None
+    cart_query = _detect_cart_query(user_message)
+    if cart_query:
+        product = _find_product(cart_query)
+        if product:
+            has_variants = product.variants.exists()
+            if has_variants:
+                action = {
+                    'type':         'navigate_to_product',
+                    'product_id':   product.id,
+                    'product_name': product.name,
+                }
+            else:
+                action = {
+                    'type': 'add_to_cart',
+                    'product': {
+                        'id':            product.id,
+                        'name':          product.name,
+                        'price':         str(product.price),
+                        'image':         str(product.image) if product.image else '',
+                        'category_name': product.category.name if product.category else '',
+                        'stock':         product.stock,
+                        'cartKey':       f'{product.id}_0',
+                    },
+                }
 
+    # ── Get text reply from Ollama ────────────────────────────────────────────
+    system_prompt = _build_system_prompt(request.user)
     messages = (
         [{"role": "system", "content": system_prompt}]
         + [{"role": m["role"], "content": m["content"]} for m in history if m["role"] != "system"]
@@ -108,16 +172,18 @@ def chat(request):
         resp.raise_for_status()
         reply = resp.json()["message"]["content"].strip()
         logger.info("Chatbot reply for user %s", request.user.email)
-        return Response({"reply": reply})
+        return Response({"reply": reply, "action": action})
 
     except requests.exceptions.ConnectionError:
         logger.warning("Ollama not running for chatbot")
         return Response({
-            "reply": "I'm offline right now. Please make sure Ollama is running (`ollama serve`) and try again."
+            "reply": "I'm offline right now. Please make sure Ollama is running and try again.",
+            "action": None,
         })
 
     except Exception as exc:
         logger.exception("Chatbot request failed: %s", exc)
         return Response({
-            "reply": "Something went wrong on my end. Please try again in a moment."
+            "reply": "Something went wrong on my end. Please try again in a moment.",
+            "action": None,
         })
