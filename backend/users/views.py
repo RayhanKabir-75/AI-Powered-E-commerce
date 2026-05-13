@@ -1,11 +1,12 @@
 import os
 import json
 import urllib.request
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from rest_framework import status
+from ecommerce.throttles import AuthRateThrottle
 from .models import User
 from .serializers import RegisterSerializer, LoginSerializer, UserSerializer
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
@@ -33,6 +34,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@throttle_classes([AuthRateThrottle])
 def register(request):
     """Register a new Customer or Seller. Admin role is blocked."""
     serializer = RegisterSerializer(data=request.data)
@@ -50,6 +52,7 @@ def register(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@throttle_classes([AuthRateThrottle])
 def login(request):
     """Login with email + password. Returns auth token."""
     serializer = LoginSerializer(data=request.data)

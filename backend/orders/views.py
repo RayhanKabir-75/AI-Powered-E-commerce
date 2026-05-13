@@ -1,10 +1,8 @@
-from django.shortcuts import render
-
-# Create your views here.
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
+from ecommerce.throttles import OrderRateThrottle
 from django.db import transaction
 from django.db.models import Sum, Count, F
 from django.utils import timezone
@@ -64,6 +62,7 @@ def order_detail(request, order_id):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@throttle_classes([OrderRateThrottle])
 def place_order(request):
     """
     POST /api/orders/place/

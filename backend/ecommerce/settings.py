@@ -89,6 +89,16 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.AllowAny',
     ),
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon':   '200/hour',
+        'user':   '1000/hour',
+        'auth':   '10/min',
+        'orders': '30/hour',
+    },
 }
 
 # ── CORS & CSRF ───────────────────────────────────────────────────────────────
