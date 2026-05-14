@@ -51,6 +51,18 @@ class ProductVariant(models.Model):
         return self.price if self.price is not None else self.product.price
 
 
+class ProductImage(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='gallery')
+    image   = models.ImageField(upload_to='products/gallery/')
+    order   = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['order', 'id']
+
+    def __str__(self):
+        return f"Gallery image for {self.product.name}"
+
+
 class BrowsingHistory(models.Model):
     user        = models.ForeignKey(
         settings.AUTH_USER_MODEL,

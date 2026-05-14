@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createProduct, getProducts, updateProduct, deleteProduct, updateOrderStatus, generateDescription, getMediaUrl, getVariants, createVariant, deleteVariant } from '../api/api';
+import { createProduct, getProducts, updateProduct, deleteProduct, updateOrderStatus, generateDescription, getMediaUrl, getVariants, createVariant, deleteVariant, getGallery, addGalleryImage, deleteGalleryImage } from '../api/api';
 import API from '../api/api';
 import LogoMark from '../components/LogoMark';
 import './auth.css';
@@ -50,6 +50,10 @@ export default function SellerDashboard({ user, onLogout }) {
   const [variants,      setVariants]      = useState([]);
   const [variantForm,   setVariantForm]   = useState({ name: '', price: '', stock: '' });
   const [variantLoading, setVariantLoading] = useState(false);
+
+  // Gallery management (edit mode only)
+  const [galleryImages,  setGalleryImages]  = useState([]);
+  const [galleryLoading, setGalleryLoading] = useState(false);
 
   const firstName = user.first_name || user.email.split('@')[0];
   const initials  = user.first_name
@@ -120,11 +124,13 @@ export default function SellerDashboard({ user, onLogout }) {
     setAiFeatures('');
     setVariants([]);
     setVariantForm({ name: '', price: '', stock: '' });
+    setGalleryImages([]);
     setShowForm(true);
     setError('');
     try {
-      const res = await getVariants(p.id);
-      setVariants(res.data);
+      const [varRes, galRes] = await Promise.all([getVariants(p.id), getGallery(p.id)]);
+      setVariants(varRes.data);
+      setGalleryImages(galRes.data);
     } catch {}
   };
 
@@ -134,7 +140,34 @@ export default function SellerDashboard({ user, onLogout }) {
     setForm(EMPTY_FORM);
     setVariants([]);
     setVariantForm({ name: '', price: '', stock: '' });
+    setGalleryImages([]);
     setError('');
+  };
+
+  const handleAddGalleryImage = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !editingId) return;
+    setGalleryLoading(true);
+    try {
+      const fd = new FormData();
+      fd.append('image', file);
+      const res = await addGalleryImage(editingId, fd);
+      setGalleryImages(prev => [...prev, res.data]);
+    } catch {
+      setError('Failed to upload gallery image.');
+    } finally {
+      setGalleryLoading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleDeleteGalleryImage = async (imageId) => {
+    try {
+      await deleteGalleryImage(editingId, imageId);
+      setGalleryImages(prev => prev.filter(g => g.id !== imageId));
+    } catch {
+      setError('Failed to delete gallery image.');
+    }
   };
 
   const handleAddVariant = async () => {
@@ -557,6 +590,62 @@ export default function SellerDashboard({ user, onLogout }) {
                       {variantLoading ? '...' : '+ Add'}
                     </button>
                   </div>
+                </div>
+              )}
+
+              {/* Gallery management — edit mode only */}
+              {editingId && (
+                <div style={{
+                  marginBottom: 20, padding: 16, borderRadius: 12,
+                  border: '1.5px solid var(--border)', background: 'var(--cream)',
+                }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>
+                    🖼️ Photo Gallery <span style={{ fontWeight: 400, color: 'var(--muted)', fontSize: 12 }}>(additional product images)</span>
+                  </div>
+
+                  {/* Existing gallery thumbnails */}
+                  {galleryImages.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                      {galleryImages.map(g => {
+                        const src = g.image.startsWith('http') ? g.image : getMediaUrl(g.image);
+                        return (
+                          <div key={g.id} style={{ position: 'relative' }}>
+                            <img src={src} alt="" style={{
+                              width: 64, height: 64, objectFit: 'cover',
+                              borderRadius: 8, border: '1px solid var(--border)',
+                            }} />
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteGalleryImage(g.id)}
+                              style={{
+                                position: 'absolute', top: -6, right: -6,
+                                width: 18, height: 18, borderRadius: '50%',
+                                background: 'var(--danger)', border: 'none',
+                                color: '#fff', fontSize: 10, cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                lineHeight: 1,
+                              }}
+                            >✕</button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Upload new gallery image */}
+                  <label style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                    padding: '7px 14px', borderRadius: 8, fontSize: 13,
+                    border: '1.5px dashed var(--border)', cursor: 'pointer',
+                    color: 'var(--muted)', background: 'var(--panel)',
+                  }}>
+                    {galleryLoading ? '⏳ Uploading...' : '+ Add Image'}
+                    <input
+                      type="file" accept="image/*" hidden
+                      onChange={handleAddGalleryImage}
+                      disabled={galleryLoading}
+                    />
+                  </label>
                 </div>
               )}
 

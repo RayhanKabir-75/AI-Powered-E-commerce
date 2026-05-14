@@ -1,5 +1,11 @@
 from rest_framework import serializers
-from .models import Product, Category, ProductVariant
+from .models import Product, Category, ProductVariant, ProductImage
+
+
+class ProductImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = ProductImage
+        fields = ['id', 'image', 'order']
 
 
 class ProductVariantSerializer(serializers.ModelSerializer):
@@ -38,6 +44,7 @@ class ProductSerializer(serializers.ModelSerializer):
     review_summary = ReviewSummaryInlineSerializer(read_only=True)
     variants       = ProductVariantSerializer(many=True, read_only=True)
     has_variants   = serializers.SerializerMethodField()
+    gallery        = ProductImageSerializer(many=True, read_only=True)
 
     def get_has_variants(self, obj):
         return obj.variants.exists()
@@ -50,6 +57,7 @@ class ProductSerializer(serializers.ModelSerializer):
             'seller', 'seller_name',
             'avg_rating', 'review_summary',
             'variants', 'has_variants',
+            'gallery',
             'created_at',
         ]
         read_only_fields = ['seller']

@@ -72,6 +72,14 @@ export const getOrder = (id) => API.get(`orders/${id}/`);
 export const placeOrder = (data) => API.post('orders/place/', data);
 export const updateOrderStatus = (id, status) => API.patch(`orders/${id}/status/`, { status });
 export const cancelOrder = (id) => API.post(`orders/${id}/cancel/`);
+export const downloadInvoice = async (orderId) => {
+  const token = localStorage.getItem('token');
+  const res = await fetch(`${BASE_URL}orders/${orderId}/invoice/`, {
+    headers: { 'Authorization': `Token ${token}` },
+  });
+  if (!res.ok) throw new Error('Failed to download invoice');
+  return res.blob();
+};
 
 // ── Reviews ────────────────────────────────────────────
 export const getReviews        = (productId) => API.get('reviews/', { params: { product: productId } });
@@ -95,6 +103,11 @@ export const getAdminOrders = (params) => API.get('orders/admin/orders/', { para
 export const getVariants    = (productId)            => API.get(`products/${productId}/variants/`);
 export const createVariant  = (productId, data)      => API.post(`products/${productId}/variants/`, data);
 export const deleteVariant  = (productId, variantId) => API.delete(`products/${productId}/variants/${variantId}/`);
+
+// ── Gallery ───────────────────────────────────────────
+export const getGallery     = (productId)            => API.get(`products/${productId}/gallery/`);
+export const addGalleryImage = (productId, formData) => API.post(`products/${productId}/gallery/`, formData);
+export const deleteGalleryImage = (productId, imageId) => API.delete(`products/${productId}/gallery/${imageId}/`);
 
 // ── Wishlist ──────────────────────────────────────────
 export const getWishlist     = ()           => API.get('wishlist/');
