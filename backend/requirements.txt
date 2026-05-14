@@ -9,3 +9,4 @@ Pillow==11.2.1
 nltk==3.9.1
 requests==2.33.1
 python-dotenv==1.2.2
+reportlab==4.4.2
