@@ -9,7 +9,9 @@ from django.db import transaction
 from django.db.models import Sum, Count, F
 from django.utils import timezone
 from django.contrib.auth import get_user_model
+from django.http import FileResponse
 from datetime import timedelta
+import io
 from .models import Order, OrderItem, PromoCode
 from .serializers import OrderSerializer, OrderItemSerializer, PlaceOrderSerializer, PromoCodeSerializer
 from products.models import Product
@@ -427,3 +429,134 @@ def admin_promo_detail(request, promo_id):
     promo.is_active = not promo.is_active
     promo.save()
     return Response(PromoCodeSerializer(promo).data)
+
+
+# ── Order Invoice PDF ─────────────────────────────────────────────────────────
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def order_invoice(request, order_id):
+    """
+    GET /api/orders/<order_id>/invoice/
+    Returns a downloadable PDF invoice for the order.
+    Customers can only download their own orders.
+    """
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.units import cm
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+
+    try:
+        order = Order.objects.prefetch_related('items__product', 'items__variant').get(pk=order_id)
+    except Order.DoesNotExist:
+        return Response({'error': 'Order not found.'}, status=404)
+
+    if request.user.role == 'customer' and order.customer != request.user:
+        return Response({'error': 'Permission denied.'}, status=403)
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        rightMargin=2*cm, leftMargin=2*cm,
+        topMargin=2*cm, bottomMargin=2*cm,
+    )
+    styles = getSampleStyleSheet()
+    gold   = colors.HexColor('#C9952A')
+    light  = colors.HexColor('#FFFDF7')
+    cream  = colors.HexColor('#F5F0E8')
+    border = colors.HexColor('#E0D5C0')
+    muted  = colors.HexColor('#9E8E6C')
+
+    story = []
+
+    # ── Header ────────────────────────────────────────────────────────────────
+    story.append(Paragraph('ShopAI', ParagraphStyle(
+        'Brand', parent=styles['Heading1'],
+        textColor=gold, fontSize=26, spaceAfter=2,
+    )))
+    story.append(Paragraph('Tax Invoice', ParagraphStyle(
+        'Sub', parent=styles['Normal'],
+        textColor=muted, fontSize=12, spaceAfter=12,
+    )))
+
+    # ── Order meta ────────────────────────────────────────────────────────────
+    meta = [
+        ['Order #:',   str(order.id)],
+        ['Date:',      order.created_at.strftime('%d %B %Y')],
+        ['Status:',    order.status.capitalize()],
+        ['Customer:',  order.customer.email],
+    ]
+    if order.promo_code:
+        meta.append(['Promo Code:', order.promo_code.code])
+
+    meta_table = Table(meta, colWidths=[3.5*cm, 11*cm])
+    meta_table.setStyle(TableStyle([
+        ('FONTNAME',    (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE',    (0, 0), (-1, -1), 10),
+        ('FONTNAME',    (0, 0), (0, -1),  'Helvetica-Bold'),
+        ('TEXTCOLOR',   (0, 0), (0, -1),  gold),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    story.append(meta_table)
+    story.append(Spacer(1, 0.6*cm))
+
+    # ── Items table ───────────────────────────────────────────────────────────
+    rows = [['Product', 'Option', 'Qty', 'Unit Price', 'Subtotal']]
+    for item in order.items.all():
+        rows.append([
+            item.product.name,
+            item.variant.name if item.variant else '—',
+            str(item.quantity),
+            f'${float(item.price):.2f}',
+            f'${float(item.price) * item.quantity:.2f}',
+        ])
+
+    items_table = Table(rows, colWidths=[6*cm, 3*cm, 1.5*cm, 3*cm, 3*cm])
+    items_table.setStyle(TableStyle([
+        ('BACKGROUND',    (0, 0), (-1, 0),  gold),
+        ('TEXTCOLOR',     (0, 0), (-1, 0),  colors.white),
+        ('FONTNAME',      (0, 0), (-1, 0),  'Helvetica-Bold'),
+        ('FONTSIZE',      (0, 0), (-1, -1), 10),
+        ('ALIGN',         (2, 0), (-1, -1), 'CENTER'),
+        ('ROWBACKGROUNDS',(0, 1), (-1, -1), [light, cream]),
+        ('GRID',          (0, 0), (-1, -1), 0.5, border),
+        ('TOPPADDING',    (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    story.append(items_table)
+    story.append(Spacer(1, 0.4*cm))
+
+    # ── Totals ────────────────────────────────────────────────────────────────
+    totals = []
+    if float(order.discount) > 0:
+        totals.append(['Discount:', f'-${float(order.discount):.2f}'])
+    totals.append(['Total (AUD):', f'${float(order.total):.2f}'])
+
+    totals_table = Table(totals, colWidths=[13*cm, 3.5*cm])
+    totals_table.setStyle(TableStyle([
+        ('FONTNAME',  (0, 0),  (-1, -1), 'Helvetica'),
+        ('FONTSIZE',  (0, 0),  (-1, -1), 11),
+        ('FONTNAME',  (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('TEXTCOLOR', (0, -1), (-1, -1), gold),
+        ('ALIGN',     (1, 0),  (1, -1),  'RIGHT'),
+        ('TOPPADDING',(0, 0),  (-1, -1), 4),
+    ]))
+    story.append(totals_table)
+
+    # ── Footer ────────────────────────────────────────────────────────────────
+    story.append(Spacer(1, 1.2*cm))
+    story.append(Paragraph('Thank you for shopping with ShopAI.', ParagraphStyle(
+        'Footer', parent=styles['Normal'],
+        fontSize=9, textColor=muted, alignment=1,
+    )))
+
+    doc.build(story)
+    buffer.seek(0)
+
+    return FileResponse(
+        buffer,
+        as_attachment=True,
+        filename=f'ShopAI_Invoice_Order_{order.id}.pdf',
+        content_type='application/pdf',
+    )

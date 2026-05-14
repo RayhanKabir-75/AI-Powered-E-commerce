@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import API from '../api/api';
+import API, { downloadInvoice } from '../api/api';
 
 const STATUS_COLOURS = {
   pending:   { bg: 'rgba(201,149,42,0.12)',  color: '#C9952A' },
@@ -35,6 +35,20 @@ export default function OrdersModal({ onClose }) {
 
   const formatDate = (dateStr) =>
     new Date(dateStr).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  const handleDownloadInvoice = async (orderId) => {
+    try {
+      const blob = await downloadInvoice(orderId);
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `ShopAI_Invoice_Order_${orderId}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert('Could not download invoice. Please try again.');
+    }
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -83,13 +97,26 @@ export default function OrdersModal({ onClose }) {
                       {formatDate(order.created_at)}
                     </div>
                   </div>
-                  <span style={{
-                    padding: '4px 12px', borderRadius: 999,
-                    fontSize: 12, fontWeight: 600, textTransform: 'capitalize',
-                    background: style.bg, color: style.color,
-                  }}>
-                    {order.status}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{
+                      padding: '4px 12px', borderRadius: 999,
+                      fontSize: 12, fontWeight: 600, textTransform: 'capitalize',
+                      background: style.bg, color: style.color,
+                    }}>
+                      {order.status}
+                    </span>
+                    <button
+                      onClick={() => handleDownloadInvoice(order.id)}
+                      title="Download Invoice PDF"
+                      style={{
+                        background: 'none', border: '1.5px solid var(--border)',
+                        borderRadius: 8, padding: '3px 9px', cursor: 'pointer',
+                        fontSize: 11, fontFamily: 'inherit', color: 'var(--muted)',
+                      }}
+                    >
+                      ↓ Invoice
+                    </button>
+                  </div>
                 </div>
 
                 {/* Order items */}

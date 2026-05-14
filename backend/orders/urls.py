@@ -28,4 +28,7 @@ urlpatterns = [
 
     # Promo validation (authenticated customers)
     path('validate-promo/',              views.validate_promo),
+
+    # GET /api/orders/<id>/invoice/ — download PDF invoice
+    path('<int:order_id>/invoice/',      views.order_invoice),
 ]

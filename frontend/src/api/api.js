@@ -72,6 +72,14 @@ export const getOrder = (id) => API.get(`orders/${id}/`);
 export const placeOrder = (data) => API.post('orders/place/', data);
 export const updateOrderStatus = (id, status) => API.patch(`orders/${id}/status/`, { status });
 export const cancelOrder = (id) => API.post(`orders/${id}/cancel/`);
+export const downloadInvoice = async (orderId) => {
+  const token = localStorage.getItem('token');
+  const res = await fetch(`${BASE_URL}orders/${orderId}/invoice/`, {
+    headers: { 'Authorization': `Token ${token}` },
+  });
+  if (!res.ok) throw new Error('Failed to download invoice');
+  return res.blob();
+};
 
 // ── Reviews ────────────────────────────────────────────
 export const getReviews        = (productId) => API.get('reviews/', { params: { product: productId } });
