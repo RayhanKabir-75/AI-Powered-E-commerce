@@ -13,5 +13,7 @@ urlpatterns = [
     path('<int:product_id>/view/',                             views.track_view),
     path('<int:product_id>/variants/',                         views.variant_list_create),
     path('<int:product_id>/variants/<int:variant_id>/',        views.variant_delete),
+    path('<int:product_id>/gallery/',                          views.gallery_list_create),
+    path('<int:product_id>/gallery/<int:image_id>/',           views.gallery_delete),
     path('', include(router.urls)),
 ]

@@ -4,6 +4,68 @@ import LogoMark from '../components/LogoMark';
 import { getProduct, trackProductView, getMediaUrl } from '../api/api';
 import ReviewSection from '../components/ReviewSection';
 
+function Gallery({ mainImage, galleryImages, productName, getEmoji, product }) {
+  const all = [
+    ...(mainImage ? [{ id: 'main', src: mainImage }] : []),
+    ...galleryImages.map(g => ({
+      id:  g.id,
+      src: g.image.startsWith('http') ? g.image : getMediaUrl(g.image),
+    })),
+  ];
+  const [active, setActive] = useState(0);
+
+  if (all.length === 0) {
+    return (
+      <div style={{
+        borderRadius: 14, overflow: 'hidden', background: 'var(--cream)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        minHeight: 320, border: '1px solid var(--border)',
+      }}>
+        <span style={{ fontSize: 96 }}>{getEmoji(product)}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {/* Main image */}
+      <div style={{
+        borderRadius: 14, overflow: 'hidden', background: 'var(--cream)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        minHeight: 320, border: '1px solid var(--border)', marginBottom: 10,
+      }}>
+        <img
+          src={all[active].src}
+          alt={productName}
+          style={{ width: '100%', height: 320, objectFit: 'cover' }}
+        />
+      </div>
+
+      {/* Thumbnails — only shown when there are multiple images */}
+      {all.length > 1 && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {all.map((img, i) => (
+            <button
+              key={img.id}
+              onClick={() => setActive(i)}
+              style={{
+                width: 60, height: 60, padding: 0, cursor: 'pointer',
+                borderRadius: 8, overflow: 'hidden',
+                border: i === active
+                  ? '2px solid var(--gold)'
+                  : '2px solid var(--border)',
+                background: 'var(--cream)', flexShrink: 0,
+              }}
+            >
+              <img src={img.src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const CATEGORY_EMOJIS = {
   Electronics: '🎧', Accessories: '👜', Footwear: '👟',
   Appliances: '☕', Sports: '🧘', Home: '💡', Bags: '🎒',
@@ -149,17 +211,14 @@ export default function ProductPage({ user, cart, setCart, wishlistIds = new Set
               padding: 36, marginBottom: 32, animation: 'fadeUp 0.3s ease both',
             }}>
 
-              {/* Image */}
-              <div style={{
-                borderRadius: 14, overflow: 'hidden', background: 'var(--cream)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                minHeight: 320, border: '1px solid var(--border)',
-              }}>
-                {imageUrl
-                  ? <img src={imageUrl} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  : <span style={{ fontSize: 96 }}>{getEmoji(product)}</span>
-                }
-              </div>
+              {/* Image / Gallery */}
+              <Gallery
+                mainImage={imageUrl}
+                galleryImages={product.gallery || []}
+                productName={product.name}
+                getEmoji={getEmoji}
+                product={product}
+              />
 
               {/* Details */}
               <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>

@@ -104,6 +104,11 @@ export const getVariants    = (productId)            => API.get(`products/${prod
 export const createVariant  = (productId, data)      => API.post(`products/${productId}/variants/`, data);
 export const deleteVariant  = (productId, variantId) => API.delete(`products/${productId}/variants/${variantId}/`);
 
+// ── Gallery ───────────────────────────────────────────
+export const getGallery     = (productId)            => API.get(`products/${productId}/gallery/`);
+export const addGalleryImage = (productId, formData) => API.post(`products/${productId}/gallery/`, formData);
+export const deleteGalleryImage = (productId, imageId) => API.delete(`products/${productId}/gallery/${imageId}/`);
+
 // ── Wishlist ──────────────────────────────────────────
 export const getWishlist     = ()           => API.get('wishlist/');
 export const toggleWishlist  = (productId) => API.post('wishlist/toggle/', { product_id: productId });
