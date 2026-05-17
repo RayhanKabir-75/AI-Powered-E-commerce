@@ -10,8 +10,29 @@ from django.db.models import Sum, F
 
 logger = logging.getLogger(__name__)
 
-OLLAMA_URL   = "http://localhost:11434/api/chat"
-OLLAMA_MODEL = "llama3.2"
+OLLAMA_BASE   = "http://localhost:11434"
+OLLAMA_URL    = OLLAMA_BASE + "/api/generate"
+# Preferred model order — will pick the first available
+OLLAMA_PREFERRED = ["llama3.2", "llama3:latest", "mistral", "llama3"]
+
+
+def _select_model(preferred=OLLAMA_PREFERRED, timeout=5):
+    """Query Ollama for installed models and pick the best available."""
+    try:
+        resp = requests.get(f"{OLLAMA_BASE}/api/tags", timeout=timeout)
+        resp.raise_for_status()
+        data = resp.json()
+        names = [m.get('name', '') for m in data.get('models', [])]
+        # Try exact/starts-with matches from preferred list
+        for p in preferred:
+            for n in names:
+                if n == p or n.startswith(p) or p.startswith(n):
+                    return p if p in names else n
+        # Fallback: return first model name if any
+        return names[0] if names else preferred[-1]
+    except Exception:
+        # If we cannot reach Ollama tags endpoint, fall back to default
+        return preferred[-1]
 
 
 _CART_PATTERNS = [
@@ -91,7 +112,8 @@ def _build_system_prompt(user):
         sellers_context = "Available products:\n" + "\n".join(bs_lines) if bs_lines else "No products listed yet."
 
     # ── All in-stock products (name, category, price, stock) ─────────────────
-    all_products = Product.objects.filter(stock__gt=0).select_related('category')[:40]
+    # Reduced from 40 to 15 for faster processing
+    all_products = Product.objects.filter(stock__gt=0).select_related('category')[:15]
     prod_lines = [
         f"  - {p.name} | Category: {p.category.name if p.category else 'N/A'} | ${p.price} | Stock: {p.stock}"
         for p in all_products
@@ -164,15 +186,31 @@ def chat(request):
     )
 
     try:
+        # Format messages into a prompt for /api/generate
+        prompt = ""
+        for msg in messages:
+            role = msg["role"].upper()
+            content = msg["content"]
+            prompt += f"{role}: {content}\n"
+        prompt += "ASSISTANT:"
+        
+        chosen_model = _select_model()
         resp = requests.post(
             OLLAMA_URL,
-            json={"model": OLLAMA_MODEL, "messages": messages, "stream": False},
-            timeout=60,
+            json={"model": chosen_model, "prompt": prompt, "stream": False},
+            timeout=300,  # Increased from 60s to 300s (5 min) for model inference
         )
         resp.raise_for_status()
-        reply = resp.json()["message"]["content"].strip()
+        reply = resp.json()["response"].strip()
         logger.info("Chatbot reply for user %s", request.user.email)
         return Response({"reply": reply, "action": action})
+
+    except requests.exceptions.Timeout:
+        logger.warning("Ollama request timed out for user %s", request.user.email)
+        return Response({
+            "reply": "I'm taking too long to think. Please try again in a moment.",
+            "action": None,
+        })
 
     except requests.exceptions.ConnectionError:
         logger.warning("Ollama not running for chatbot")

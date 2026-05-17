@@ -51,7 +51,7 @@ export default function OrdersModal({ onClose }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={onClose} style={{ alignItems: 'flex-start', paddingTop: 40 }}>
       <div className="modal-box"
         onClick={e => e.stopPropagation()}
         style={{ maxWidth: 560, maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>

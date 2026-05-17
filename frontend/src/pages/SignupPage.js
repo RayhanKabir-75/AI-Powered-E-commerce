@@ -10,7 +10,7 @@ import './auth.css';
 // PASTE YOUR GOOGLE CLIENT ID HERE — same value as in LoginPage.js
 // ─────────────────────────────────────────────────────────────────────────────
 //const GOOGLE_CLIENT_ID = '988540202332-ta0u4omgr7kutb8e9nlj19256fjnlbe1.apps.googleusercontent.com';
-const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID || '';
 
 const ROLES = [
   { value: 'customer', icon: '🛍️', label: 'Customer', desc: 'Browse & buy products with AI-powered picks' },
@@ -26,6 +26,7 @@ export default function SignupPage({ onLogin }) {
   const [loading,  setLoading]  = useState(false);
   const [apiErr,   setApiErr]   = useState('');
   const [gLoading, setGLoading] = useState(false);
+  const [googleReady, setGoogleReady] = useState(false);
 
   // ── Load Google Identity Services script ──────────────────────────────────
   useEffect(() => {
@@ -35,7 +36,9 @@ export default function SignupPage({ onLogin }) {
     script.src   = 'https://accounts.google.com/gsi/client';
     script.async = true;
     script.defer = true;
+    script.onload = () => setGoogleReady(true);
     document.body.appendChild(script);
+    if (window.google) setGoogleReady(true);
   }, []);
 
   const set = (k, v) => {
@@ -81,7 +84,12 @@ export default function SignupPage({ onLogin }) {
 
   // ── Google signup ─────────────────────────────────────────────────────────
   const handleGoogle = () => {
-    if (!window.google) {
+    if (!GOOGLE_CLIENT_ID) {
+      setApiErr('Google Sign-In is not configured. Please set REACT_APP_GOOGLE_CLIENT_ID.');
+      return;
+    }
+
+    if (!googleReady || !window.google) {
       setApiErr('Google Sign-In is still loading. Please wait a moment and try again.');
       return;
     }

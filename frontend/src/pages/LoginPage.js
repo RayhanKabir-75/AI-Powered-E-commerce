@@ -7,7 +7,7 @@ import { forgotPassword } from '../api/api';
 import LogoMark from '../components/LogoMark';
 import './auth.css';
 
-const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID || '';
 
 // ── Forgot Password Modal ─────────────────────────────────────────────────────
 function ForgotPasswordModal({ onClose }) {
@@ -95,6 +95,7 @@ export default function LoginPage({ onLogin }) {
   const [apiErr,     setApiErr]     = useState('');
   const [forgotOpen, setForgotOpen] = useState(false);
   const [gLoading,   setGLoading]   = useState(false);
+  const [googleReady, setGoogleReady] = useState(false);
 
   // ── Load Google Identity Services script ──────────────────────────────────
   useEffect(() => {
@@ -105,7 +106,9 @@ export default function LoginPage({ onLogin }) {
     script.src = 'https://accounts.google.com/gsi/client';
     script.async = true;
     script.defer = true;
+    script.onload = () => setGoogleReady(true);
     document.body.appendChild(script);
+    if (window.google) setGoogleReady(true);
   }, []);
 
   const set = (k, v) => {
@@ -143,7 +146,12 @@ export default function LoginPage({ onLogin }) {
   // When user picks their Google account, Google calls this callback with a
   // credential (JWT ID token). We send that to our Django backend to verify.
   const handleGoogle = () => {
-    if (!window.google) {
+    if (!GOOGLE_CLIENT_ID) {
+      setApiErr('Google Sign-In is not configured. Please set REACT_APP_GOOGLE_CLIENT_ID.');
+      return;
+    }
+
+    if (!googleReady || !window.google) {
       setApiErr('Google Sign-In is still loading. Please wait a moment and try again.');
       return;
     }
