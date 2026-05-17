@@ -16,8 +16,7 @@ export default function LandingPage() {
           ShopAI
         </div>
         <div className="nav-actions">
-          <button className="btn btn-ghost"   onClick={() => navigate('/login')}>Log in</button>
-          <button className="btn btn-primary" onClick={() => navigate('/signup')}>Get started</button>
+          <button className="btn btn-primary" onClick={() => navigate('/login')}>Log in</button>
         </div>
       </nav>
 
@@ -31,8 +30,8 @@ export default function LandingPage() {
           product listings, and keeps customers engaged with a conversational assistant.
         </p>
         <div className="hero-cta">
-          <button className="btn btn-gold"    onClick={() => navigate('/signup')}>Start for free →</button>
-          <button className="btn btn-outline" onClick={() => navigate('/login')}>Sign in</button>
+          <button className="btn btn-gold"    onClick={() => navigate('/signup')}>Sign Up</button>
+          <button className="btn btn-outline" onClick={() => navigate('/login')}>Login</button>
         </div>
       </section>
 

@@ -62,6 +62,26 @@ export default function App() {
     setLoading(false);
   }, []);
 
+  // Sync login/logout across tabs for concurrent sessions
+  useEffect(() => {
+    const handleStorage = (event) => {
+      if (event.key === 'user' || event.key === 'token') {
+        const savedUser  = localStorage.getItem('user');
+        const savedToken = localStorage.getItem('token');
+
+        if (savedUser && savedToken) {
+          setUser(JSON.parse(savedUser));
+        } else {
+          setUser(null);
+          setCartState([]);
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   // Load wishlist IDs whenever a customer logs in
   useEffect(() => {
     if (user?.role === 'customer') {
