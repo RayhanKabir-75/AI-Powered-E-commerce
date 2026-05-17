@@ -123,6 +123,10 @@ CSRF_COOKIE_SECURE   = not DEBUG
 SESSION_COOKIE_SAMESITE = 'None' if not DEBUG else 'Lax'
 SESSION_COOKIE_SECURE   = not DEBUG
 
+# -- Session settings for auto-logout after inactivity
+SESSION_COOKIE_AGE = 900  # 15 minutes
+SESSION_SAVE_EVERY_REQUEST = True
+
 # ── Static & Media ────────────────────────────────────────────────────────────
 STATIC_URL  = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'

@@ -15,6 +15,8 @@ import SearchResultsPage from './pages/SearchResultsPage';
 import WishlistPage from './pages/WishlistPage';
 import ChatbotWidget from './components/ChatbotWidget';
 
+import { setupAutoLogout } from "./utils/autoLogout";
+
 import { logoutUser, getWishlist, toggleWishlist } from './api/api';
 
 import ProductDescription from "./components/ProductDescription";
@@ -81,6 +83,16 @@ export default function App() {
     window.addEventListener('storage', handleStorage);
     return () => window.removeEventListener('storage', handleStorage);
   }, []);
+
+  //loogout after 15 mins of inactivity
+  useEffect(() => {
+    setupAutoLogout(() => {
+    localStorage.removeItem("token");
+    alert("Session expired due to inactivity");
+    window.location.href = "/login";
+    });
+  }, []);
+
 
   // Load wishlist IDs whenever a customer logs in
   useEffect(() => {
