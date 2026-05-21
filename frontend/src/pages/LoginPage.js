@@ -4,9 +4,10 @@ import { loginUser } from '../api/api';
 import API from '../api/api';
 import { GoogleIcon } from '../components/GoogleIcon';
 import { forgotPassword } from '../api/api';
+import LogoMark from '../components/LogoMark';
 import './auth.css';
 
-const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID || '';
 
 // ── Forgot Password Modal ─────────────────────────────────────────────────────
 function ForgotPasswordModal({ onClose }) {
@@ -94,6 +95,7 @@ export default function LoginPage({ onLogin }) {
   const [apiErr,     setApiErr]     = useState('');
   const [forgotOpen, setForgotOpen] = useState(false);
   const [gLoading,   setGLoading]   = useState(false);
+  const [googleReady, setGoogleReady] = useState(false);
 
   // ── Load Google Identity Services script ──────────────────────────────────
   useEffect(() => {
@@ -104,7 +106,9 @@ export default function LoginPage({ onLogin }) {
     script.src = 'https://accounts.google.com/gsi/client';
     script.async = true;
     script.defer = true;
+    script.onload = () => setGoogleReady(true);
     document.body.appendChild(script);
+    if (window.google) setGoogleReady(true);
   }, []);
 
   const set = (k, v) => {
@@ -142,7 +146,12 @@ export default function LoginPage({ onLogin }) {
   // When user picks their Google account, Google calls this callback with a
   // credential (JWT ID token). We send that to our Django backend to verify.
   const handleGoogle = () => {
-    if (!window.google) {
+    if (!GOOGLE_CLIENT_ID) {
+      setApiErr('Google Sign-In is not configured. Please set REACT_APP_GOOGLE_CLIENT_ID.');
+      return;
+    }
+
+    if (!googleReady || !window.google) {
       setApiErr('Google Sign-In is still loading. Please wait a moment and try again.');
       return;
     }
@@ -186,7 +195,7 @@ export default function LoginPage({ onLogin }) {
         <div className="auth-panel">
           <div className="auth-panel-bg" />
           <div className="auth-panel-content">
-            <div className="auth-panel-logo"><div className="panel-dot" /> ShopAI</div>
+            <div className="auth-panel-logo"><LogoMark size={32} /> ShopAI</div>
             <h2 className="auth-panel-title">Welcome<br /><em>back.</em></h2>
             <p className="auth-panel-sub">Your personalised AI shopping experience awaits.</p>
             <div className="auth-testimonial">

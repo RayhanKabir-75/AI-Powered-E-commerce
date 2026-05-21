@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { registerUser } from '../api/api';
 import API from '../api/api';
 import { GoogleIcon } from '../components/GoogleIcon';
+import LogoMark from '../components/LogoMark';
 import './auth.css';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PASTE YOUR GOOGLE CLIENT ID HERE — same value as in LoginPage.js
 // ─────────────────────────────────────────────────────────────────────────────
 //const GOOGLE_CLIENT_ID = '988540202332-ta0u4omgr7kutb8e9nlj19256fjnlbe1.apps.googleusercontent.com';
-const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID || '';
 
 const ROLES = [
   { value: 'customer', icon: '🛍️', label: 'Customer', desc: 'Browse & buy products with AI-powered picks' },
@@ -25,6 +26,7 @@ export default function SignupPage({ onLogin }) {
   const [loading,  setLoading]  = useState(false);
   const [apiErr,   setApiErr]   = useState('');
   const [gLoading, setGLoading] = useState(false);
+  const [googleReady, setGoogleReady] = useState(false);
 
   // ── Load Google Identity Services script ──────────────────────────────────
   useEffect(() => {
@@ -34,7 +36,9 @@ export default function SignupPage({ onLogin }) {
     script.src   = 'https://accounts.google.com/gsi/client';
     script.async = true;
     script.defer = true;
+    script.onload = () => setGoogleReady(true);
     document.body.appendChild(script);
+    if (window.google) setGoogleReady(true);
   }, []);
 
   const set = (k, v) => {
@@ -80,7 +84,12 @@ export default function SignupPage({ onLogin }) {
 
   // ── Google signup ─────────────────────────────────────────────────────────
   const handleGoogle = () => {
-    if (!window.google) {
+    if (!GOOGLE_CLIENT_ID) {
+      setApiErr('Google Sign-In is not configured. Please set REACT_APP_GOOGLE_CLIENT_ID.');
+      return;
+    }
+
+    if (!googleReady || !window.google) {
       setApiErr('Google Sign-In is still loading. Please wait a moment and try again.');
       return;
     }
@@ -120,7 +129,7 @@ export default function SignupPage({ onLogin }) {
       <div className="auth-panel">
         <div className="auth-panel-bg" />
         <div className="auth-panel-content">
-          <div className="auth-panel-logo"><div className="panel-dot" /> ShopAI</div>
+          <div className="auth-panel-logo"><LogoMark size={32} /> ShopAI</div>
           <h2 className="auth-panel-title">Join the<br /><em>future</em> of<br />shopping.</h2>
           <p className="auth-panel-sub">Create an account and get instant access to AI-powered product discovery.</p>
           <div style={{ marginTop: 40, display: 'flex', flexDirection: 'column', gap: 14 }}>

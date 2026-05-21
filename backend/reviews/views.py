@@ -13,8 +13,9 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
+from django.db.models import Count
 
-from .models import Review, ProductReviewSummary
+from .models import Review, ProductReviewSummary, ReviewHelpfulVote
 from .serializers import ReviewSerializer, ProductReviewSummarySerializer
 from .ai_utils import analyze_sentiment, generate_summary
 from products.models import Product
@@ -65,14 +66,30 @@ def _rebuild_summary(product: Product):
 def list_reviews(request):
     """
     GET /api/reviews/?product=<product_id>
-    Returns all reviews for a given product, ordered newest first.
+    Returns all reviews for a product, annotated with helpful_votes count,
+    sorted by most helpful first then newest.
     """
     product_id = request.query_params.get('product')
     if not product_id:
         return Response({'error': 'product query parameter is required.'}, status=400)
 
-    reviews = Review.objects.filter(product_id=product_id).order_by('-created_at')
-    serializer = ReviewSerializer(reviews, many=True)
+    reviews = (
+        Review.objects
+        .filter(product_id=product_id)
+        .annotate(helpful_votes=Count('helpfulvote_set'))
+        .order_by('-helpful_votes', '-created_at')
+    )
+
+    # Build the set of review IDs this user has voted on (single query)
+    voted_ids = set()
+    if request.user.is_authenticated:
+        voted_ids = set(
+            ReviewHelpfulVote.objects
+            .filter(user=request.user, review__in=reviews)
+            .values_list('review_id', flat=True)
+        )
+
+    serializer = ReviewSerializer(reviews, many=True, context={'voted_ids': voted_ids})
     return Response(serializer.data)
 
 
@@ -172,3 +189,37 @@ def regenerate_summary(request, product_id):
         'message': 'Summary regenerated successfully.',
         **ProductReviewSummarySerializer(product.review_summary).data
     })
+
+
+# ── Helpful vote toggle ───────────────────────────────────────────────────────
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def vote_review(request, review_id):
+    """
+    POST /api/reviews/<review_id>/vote/
+    Toggles a helpful vote for the review. Customers cannot vote on their
+    own reviews. Returns the new vote state and updated helpful_votes count.
+    """
+    try:
+        review = Review.objects.annotate(
+            helpful_votes=Count('helpfulvote_set')
+        ).get(pk=review_id)
+    except Review.DoesNotExist:
+        return Response({'error': 'Review not found.'}, status=404)
+
+    if review.customer == request.user:
+        return Response({'error': "You can't vote on your own review."}, status=400)
+
+    vote, created = ReviewHelpfulVote.objects.get_or_create(
+        review=review, user=request.user
+    )
+    if not created:
+        vote.delete()
+        voted = False
+    else:
+        voted = True
+
+    # Re-fetch the updated count
+    new_count = ReviewHelpfulVote.objects.filter(review=review).count()
+    return Response({'voted': voted, 'helpful_votes': new_count})

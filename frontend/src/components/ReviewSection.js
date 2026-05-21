@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getReviews, submitReview, getReviewSummary } from '../api/api';
+import { getReviews, submitReview, getReviewSummary, voteReview } from '../api/api';
 
 const SENTIMENT_STYLE = {
   positive: { bg: 'rgba(39,174,96,0.1)',   color: '#27AE60', label: '😊 Positive' },
@@ -75,13 +75,15 @@ function AISummaryCard({ summary }) {
 
 // ── Main ReviewSection ────────────────────────────────────────────────────────
 export default function ReviewSection({ productId, user }) {
-  const [reviews,  setReviews]  = useState([]);
-  const [summary,  setSummary]  = useState(null);
-  const [loading,  setLoading]  = useState(true);
-  const [form,     setForm]     = useState({ rating: 0, comment: '' });
+  const [reviews,    setReviews]    = useState([]);
+  const [summary,    setSummary]    = useState(null);
+  const [loading,    setLoading]    = useState(true);
+  const [form,       setForm]       = useState({ rating: 0, comment: '' });
   const [submitting, setSubmitting] = useState(false);
   const [formError,  setFormError]  = useState('');
   const [submitted,  setSubmitted]  = useState(false);
+  const [sortBy,     setSortBy]     = useState('helpful'); // 'helpful' | 'newest'
+  const [votingId,   setVotingId]   = useState(null);
 
   // Fetch reviews and AI summary on mount
   useEffect(() => {
@@ -121,6 +123,28 @@ export default function ReviewSection({ productId, user }) {
       setSubmitting(false);
     }
   };
+
+  const handleVote = async (reviewId) => {
+    if (!user) return;
+    setVotingId(reviewId);
+    try {
+      const res = await voteReview(reviewId);
+      setReviews(prev => prev.map(r =>
+        r.id === reviewId
+          ? { ...r, helpful_votes: res.data.helpful_votes, user_has_voted: res.data.voted }
+          : r
+      ));
+    } catch (_) {}
+    finally { setVotingId(null); }
+  };
+
+  const sortedReviews = [...reviews].sort((a, b) => {
+    if (sortBy === 'helpful') {
+      if ((b.helpful_votes || 0) !== (a.helpful_votes || 0))
+        return (b.helpful_votes || 0) - (a.helpful_votes || 0);
+    }
+    return new Date(b.created_at) - new Date(a.created_at);
+  });
 
   const formatDate = (d) => new Date(d).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -184,10 +208,32 @@ export default function ReviewSection({ productId, user }) {
         </div>
       )}
 
-      {/* Reviews list */}
-      <h4 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>
-        Customer Reviews {reviews.length > 0 && `(${reviews.length})`}
-      </h4>
+      {/* Reviews list header + sort toggle */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+        <h4 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>
+          Customer Reviews {reviews.length > 0 && `(${reviews.length})`}
+        </h4>
+        {reviews.length > 1 && (
+          <div style={{ display: 'flex', gap: 6 }}>
+            {[['helpful', '👍 Most Helpful'], ['newest', '🕒 Newest']].map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setSortBy(key)}
+                style={{
+                  fontSize: 11, padding: '4px 12px', borderRadius: 999,
+                  border: `1.5px solid ${sortBy === key ? 'var(--gold)' : 'var(--border)'}`,
+                  background: sortBy === key ? 'rgba(201,149,42,0.1)' : 'none',
+                  color: sortBy === key ? 'var(--gold)' : 'var(--muted)',
+                  cursor: 'pointer', fontFamily: 'inherit', fontWeight: sortBy === key ? 700 : 400,
+                  transition: 'all 0.15s',
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {loading && (
         <div style={{ textAlign: 'center', padding: '24px 0' }}>
@@ -203,11 +249,14 @@ export default function ReviewSection({ productId, user }) {
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {reviews.map(review => {
-          const sStyle = SENTIMENT_STYLE[review.sentiment] || SENTIMENT_STYLE.neutral;
+        {sortedReviews.map(review => {
+          const sStyle   = SENTIMENT_STYLE[review.sentiment] || SENTIMENT_STYLE.neutral;
+          const isOwn    = user?.email === review.customer;
+          const hasVoted = review.user_has_voted;
+          const votes    = review.helpful_votes || 0;
           return (
             <div key={review.id} style={{
-              background: '#fff', borderRadius: 14, padding: '18px',
+              background: 'var(--panel)', borderRadius: 14, padding: '18px',
               border: '1px solid var(--border)',
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
@@ -231,9 +280,36 @@ export default function ReviewSection({ productId, user }) {
                   )}
                 </div>
               </div>
-              <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--dark)', margin: 0 }}>
+
+              <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--dark)', margin: '0 0 12px' }}>
                 {review.comment}
               </p>
+
+              {/* Helpful vote button */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  onClick={() => handleVote(review.id)}
+                  disabled={!user || isOwn || votingId === review.id}
+                  title={isOwn ? "You can't vote on your own review" : hasVoted ? 'Remove helpful vote' : 'Mark as helpful'}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    fontSize: 12, padding: '4px 12px', borderRadius: 999,
+                    border: `1.5px solid ${hasVoted ? 'var(--gold)' : 'var(--border)'}`,
+                    background: hasVoted ? 'rgba(201,149,42,0.1)' : 'none',
+                    color: hasVoted ? 'var(--gold)' : 'var(--muted)',
+                    cursor: (!user || isOwn) ? 'default' : 'pointer',
+                    fontFamily: 'inherit', transition: 'all 0.15s',
+                    opacity: votingId === review.id ? 0.5 : 1,
+                  }}
+                >
+                  👍 Helpful {votes > 0 && `(${votes})`}
+                </button>
+                {votes > 0 && (
+                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                    {votes} {votes === 1 ? 'person' : 'people'} found this helpful
+                  </span>
+                )}
+              </div>
             </div>
           );
         })}

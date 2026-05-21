@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import LogoMark from '../components/LogoMark';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
-import { getAdminStats, getAdminOrders, updateOrderStatus } from '../api/api';
+import { getAdminStats, getAdminOrders, updateOrderStatus, getPromoCodes, createPromoCode, deletePromoCode, togglePromoCode } from '../api/api';
 import './auth.css';
 
 const STATUS_COLORS = {
@@ -67,6 +68,13 @@ export default function AdminDashboard({ user, onLogout }) {
   const [updatingId,    setUpdatingId]    = useState(null);
   const [error,         setError]         = useState('');
 
+  // Promo codes tab
+  const [promos,       setPromos]       = useState([]);
+  const [promosLoaded, setPromosLoaded] = useState(false);
+  const [promoForm,    setPromoForm]    = useState({ code: '', discount_percent: '', expiry: '', max_uses: '' });
+  const [promoSaving,  setPromoSaving]  = useState(false);
+  const [promoError,   setPromoError]   = useState('');
+
   const fetchStats = useCallback(async () => {
     try {
       const res = await getAdminStats();
@@ -111,6 +119,54 @@ export default function AdminDashboard({ user, onLogout }) {
   };
 
   const handleLogout = () => { onLogout(); navigate('/'); };
+
+  const fetchPromos = async () => {
+    try {
+      const res = await getPromoCodes();
+      setPromos(res.data);
+      setPromosLoaded(true);
+    } catch { setPromoError('Failed to load promo codes.'); }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'promos' && !promosLoaded) fetchPromos();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  const handleCreatePromo = async (e) => {
+    e.preventDefault();
+    if (!promoForm.code || !promoForm.discount_percent) {
+      setPromoError('Code and discount % are required.'); return;
+    }
+    setPromoSaving(true); setPromoError('');
+    try {
+      const payload = {
+        code:             promoForm.code.toUpperCase(),
+        discount_percent: parseInt(promoForm.discount_percent),
+        ...(promoForm.expiry   ? { expiry:    promoForm.expiry }              : {}),
+        ...(promoForm.max_uses ? { max_uses:  parseInt(promoForm.max_uses) }  : {}),
+      };
+      const res = await createPromoCode(payload);
+      setPromos(prev => [res.data, ...prev]);
+      setPromoForm({ code: '', discount_percent: '', expiry: '', max_uses: '' });
+    } catch (err) {
+      setPromoError(err.response?.data?.error || JSON.stringify(err.response?.data) || 'Failed to create promo code.');
+    } finally { setPromoSaving(false); }
+  };
+
+  const handleDeletePromo = async (id) => {
+    try {
+      await deletePromoCode(id);
+      setPromos(prev => prev.filter(p => p.id !== id));
+    } catch { setPromoError('Failed to delete promo code.'); }
+  };
+
+  const handleTogglePromo = async (id) => {
+    try {
+      const res = await togglePromoCode(id);
+      setPromos(prev => prev.map(p => p.id === id ? res.data : p));
+    } catch { setPromoError('Failed to update promo code.'); }
+  };
 
   if (loading) {
     return (
@@ -162,8 +218,9 @@ export default function AdminDashboard({ user, onLogout }) {
   }));
 
   const tabs = [
-    { key: 'overview', label: '📊 Overview' },
-    { key: 'orders',   label: '📦 All Orders' },
+    { key: 'overview', label: '📊 Overview'    },
+    { key: 'orders',   label: '📦 All Orders'  },
+    { key: 'promos',   label: '🏷️ Promo Codes' },
   ];
 
   return (
@@ -171,11 +228,11 @@ export default function AdminDashboard({ user, onLogout }) {
 
       {/* ── Nav ─────────────────────────────────────────────────────────────── */}
       <nav className="home-nav">
-        <div className="nav-logo" style={{
+        <div className="nav-logo" onClick={() => navigate('/home')} style={{
           fontFamily: "'Playfair Display', serif", fontSize: 20,
-          fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8,
+          fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
         }}>
-          <div style={{ width: 7, height: 7, background: 'var(--gold)', borderRadius: '50%' }} />
+          <LogoMark size={34} />
           ShopAI <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--muted)', marginLeft: 4 }}>Admin</span>
         </div>
 
@@ -357,6 +414,124 @@ export default function AdminDashboard({ user, onLogout }) {
           </>
         )}
 
+        {/* ════════════════════════ PROMOS TAB ══════════════════════════════ */}
+        {activeTab === 'promos' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 24, marginBottom: 32 }}>
+
+            {/* Create form */}
+            <div style={{ background: 'var(--panel)', borderRadius: 16, border: '1px solid var(--border)', padding: 24 }}>
+              <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 700, marginBottom: 20 }}>
+                Create Promo Code
+              </h3>
+              {promoError && (
+                <div style={{ background: 'rgba(192,57,43,0.08)', border: '1px solid rgba(192,57,43,0.25)', color: 'var(--danger)', padding: '10px 14px', borderRadius: 8, marginBottom: 16, fontSize: 13 }}>
+                  {promoError}
+                </div>
+              )}
+              <form onSubmit={handleCreatePromo}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px,1fr))', gap: 14, marginBottom: 16 }}>
+                  {[
+                    { label: 'Code *',        name: 'code',             placeholder: 'e.g. SUMMER20', type: 'text'   },
+                    { label: 'Discount % *',  name: 'discount_percent', placeholder: '10',            type: 'number' },
+                    { label: 'Expiry date',   name: 'expiry',           placeholder: '',              type: 'date'   },
+                    { label: 'Max uses',      name: 'max_uses',         placeholder: 'Unlimited',     type: 'number' },
+                  ].map(f => (
+                    <div key={f.name}>
+                      <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4, color: 'var(--muted)' }}>
+                        {f.label}
+                      </label>
+                      <input
+                        type={f.type} placeholder={f.placeholder}
+                        value={promoForm[f.name]}
+                        min={f.type === 'number' ? 1 : undefined}
+                        max={f.name === 'discount_percent' ? 100 : undefined}
+                        onChange={e => setPromoForm(prev => ({ ...prev, [f.name]: e.target.value }))}
+                        style={{
+                          width: '100%', padding: '8px 10px', border: '1.5px solid var(--border)',
+                          borderRadius: 8, fontFamily: 'inherit', fontSize: 13, outline: 'none',
+                          boxSizing: 'border-box', background: 'var(--cream)',
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <button type="submit" className="btn btn-primary" style={{ fontSize: 13, padding: '9px 22px' }} disabled={promoSaving}>
+                  {promoSaving ? 'Creating…' : '+ Create Code'}
+                </button>
+              </form>
+            </div>
+
+            {/* Promo list */}
+            <div style={{ background: 'var(--panel)', borderRadius: 16, border: '1px solid var(--border)', padding: 24 }}>
+              <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 700, marginBottom: 20 }}>
+                Active Codes ({promos.length})
+              </h3>
+              {promos.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--muted)' }}>
+                  <div style={{ fontSize: 36, marginBottom: 8 }}>🏷️</div>
+                  No promo codes yet. Create one above.
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                        {['Code', 'Discount', 'Expiry', 'Uses', 'Status', 'Actions'].map(h => (
+                          <th key={h} style={{ padding: '8px 12px', color: 'var(--muted)', fontWeight: 600, textAlign: 'left' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {promos.map((p, i) => (
+                        <tr key={p.id} style={{ borderBottom: '1px solid var(--border)', background: i % 2 === 0 ? 'var(--panel)' : 'var(--cream)' }}>
+                          <td style={{ padding: '10px 12px', fontWeight: 700, color: 'var(--gold)', letterSpacing: 1 }}>{p.code}</td>
+                          <td style={{ padding: '10px 12px' }}>{p.discount_percent}% off</td>
+                          <td style={{ padding: '10px 12px', color: 'var(--muted)' }}>{p.expiry || '—'}</td>
+                          <td style={{ padding: '10px 12px', color: 'var(--muted)' }}>
+                            {p.uses_so_far}{p.max_uses ? ` / ${p.max_uses}` : ''}
+                          </td>
+                          <td style={{ padding: '10px 12px' }}>
+                            <span style={{
+                              padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 600,
+                              background: p.is_active ? 'rgba(39,174,96,0.12)' : 'rgba(192,57,43,0.12)',
+                              color:      p.is_active ? '#27AE60' : '#C0392B',
+                            }}>
+                              {p.is_active ? 'Active' : 'Inactive'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '10px 12px' }}>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <button
+                                onClick={() => handleTogglePromo(p.id)}
+                                style={{
+                                  fontSize: 11, padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
+                                  border: '1px solid var(--border)', background: 'var(--cream)', fontFamily: 'inherit',
+                                }}
+                              >
+                                {p.is_active ? 'Deactivate' : 'Activate'}
+                              </button>
+                              <button
+                                onClick={() => handleDeletePromo(p.id)}
+                                style={{
+                                  fontSize: 11, padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
+                                  border: '1px solid rgba(192,57,43,0.3)', background: 'rgba(192,57,43,0.08)',
+                                  color: 'var(--danger)', fontFamily: 'inherit',
+                                }}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* ════════════════════════ ORDERS TAB ══════════════════════════════ */}
         {activeTab === 'orders' && (
           <div style={{ background: 'var(--panel)', borderRadius: 16, border: '1px solid var(--border)', padding: 24, marginBottom: 32 }}>
@@ -433,7 +608,7 @@ function OrdersTable({ orders, onStatusUpdate, updatingId, showAll }) {
               key={order.id}
               style={{
                 borderBottom: '1px solid var(--border)',
-                background: i % 2 === 0 ? '#fff' : '#fdfaf4',
+                background: i % 2 === 0 ? 'var(--panel)' : 'var(--card)',
               }}
             >
               <td style={{ padding: '10px 12px', fontWeight: 700, color: 'var(--gold)' }}>#{order.id}</td>

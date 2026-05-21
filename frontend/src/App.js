@@ -11,9 +11,13 @@ import CartPage from './pages/CartPage';
 import CheckoutPage from './pages/CheckoutPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import ProductPage from './pages/ProductPage';
+import SearchResultsPage from './pages/SearchResultsPage';
+import WishlistPage from './pages/WishlistPage';
 import ChatbotWidget from './components/ChatbotWidget';
 
-import { logoutUser } from './api/api';
+import { setupAutoLogout } from "./utils/autoLogout";
+
+import { logoutUser, getWishlist, toggleWishlist } from './api/api';
 
 import ProductDescription from "./components/ProductDescription";
 
@@ -33,6 +37,7 @@ export default function App() {
   const [cart, setCartState] = useState(loadCart);
   const [chatOpen, setChatOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
+  const [wishlistIds, setWishlistIds] = useState(new Set());
 
   // Wrap setCart to also persist to localStorage
   const setCart = (updater) => {
@@ -58,6 +63,58 @@ export default function App() {
 
     setLoading(false);
   }, []);
+
+  // Sync login/logout across tabs for concurrent sessions
+  useEffect(() => {
+    const handleStorage = (event) => {
+      if (event.key === 'user' || event.key === 'token') {
+        const savedUser  = localStorage.getItem('user');
+        const savedToken = localStorage.getItem('token');
+
+        if (savedUser && savedToken) {
+          setUser(JSON.parse(savedUser));
+        } else {
+          setUser(null);
+          setCartState([]);
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
+  //loogout after 15 mins of inactivity
+  useEffect(() => {
+    setupAutoLogout(() => {
+    localStorage.removeItem("token");
+    alert("Session expired due to inactivity");
+    window.location.href = "/login";
+    });
+  }, []);
+
+
+  // Load wishlist IDs whenever a customer logs in
+  useEffect(() => {
+    if (user?.role === 'customer') {
+      getWishlist()
+        .then(res => setWishlistIds(new Set(res.data.map(item => item.product.id))))
+        .catch(() => {});
+    } else {
+      setWishlistIds(new Set());
+    }
+  }, [user]);
+
+  const handleToggleWishlist = async (productId) => {
+    try {
+      const res = await toggleWishlist(productId);
+      setWishlistIds(prev => {
+        const next = new Set(prev);
+        res.data.added ? next.add(productId) : next.delete(productId);
+        return next;
+      });
+    } catch {}
+  };
 
   const handleLogin = (userData, token) => {
     localStorage.setItem('token', token);
@@ -100,7 +157,7 @@ export default function App() {
       </button>
 
       {user?.role === 'customer' && (
-        <ChatbotWidget open={chatOpen} onToggle={() => setChatOpen(o => !o)} />
+        <ChatbotWidget open={chatOpen} onToggle={() => setChatOpen(o => !o)} setCart={setCart} />
       )}
       <Routes>
 
@@ -134,7 +191,13 @@ export default function App() {
           path="/home"
           element={
             user ? (
-              user.role === 'seller' ? <Navigate to="/seller" /> : <HomePage user={user} onLogout={handleLogout} cart={cart} setCart={setCart} />
+              user.role === 'seller' ? <Navigate to="/seller" /> : (
+                <HomePage
+                  user={user} onLogout={handleLogout}
+                  cart={cart} setCart={setCart}
+                  wishlistIds={wishlistIds} onToggleWishlist={handleToggleWishlist}
+                />
+              )
             ) : (
               <Navigate to="/login" />
             )
@@ -146,7 +209,10 @@ export default function App() {
           path="/product/:id"
           element={
             user ? (
-              <ProductPage user={user} cart={cart} setCart={setCart} />
+              <ProductPage
+                user={user} cart={cart} setCart={setCart}
+                wishlistIds={wishlistIds} onToggleWishlist={handleToggleWishlist}
+              />
             ) : (
               <Navigate to="/login" />
             )
@@ -202,6 +268,35 @@ export default function App() {
           element={
             user ? (
               <CheckoutPage setCart={setCart} />
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
+        <Route
+          path="/search"
+          element={
+            user ? (
+              <SearchResultsPage
+                cart={cart} setCart={setCart}
+                wishlistIds={wishlistIds} onToggleWishlist={handleToggleWishlist}
+              />
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
+        {/* Wishlist */}
+        <Route
+          path="/wishlist"
+          element={
+            user ? (
+              <WishlistPage
+                cart={cart} setCart={setCart}
+                wishlist={wishlistIds} onToggle={handleToggleWishlist}
+              />
             ) : (
               <Navigate to="/login" />
             )

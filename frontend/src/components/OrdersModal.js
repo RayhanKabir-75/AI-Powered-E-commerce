@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import API from '../api/api';
+import API, { downloadInvoice } from '../api/api';
 
 const STATUS_COLOURS = {
   pending:   { bg: 'rgba(201,149,42,0.12)',  color: '#C9952A' },
@@ -36,8 +36,22 @@ export default function OrdersModal({ onClose }) {
   const formatDate = (dateStr) =>
     new Date(dateStr).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
 
+  const handleDownloadInvoice = async (orderId) => {
+    try {
+      const blob = await downloadInvoice(orderId);
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `ShopAI_Invoice_Order_${orderId}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert('Could not download invoice. Please try again.');
+    }
+  };
+
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={onClose} style={{ alignItems: 'flex-start', paddingTop: 40 }}>
       <div className="modal-box"
         onClick={e => e.stopPropagation()}
         style={{ maxWidth: 560, maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
@@ -73,7 +87,7 @@ export default function OrdersModal({ onClose }) {
             return (
               <div key={order.id} style={{
                 border: '1px solid var(--border)', borderRadius: 12,
-                padding: '16px', marginBottom: 12, background: '#fff',
+                padding: '16px', marginBottom: 12, background: 'var(--panel)',
               }}>
                 {/* Order header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
@@ -83,13 +97,26 @@ export default function OrdersModal({ onClose }) {
                       {formatDate(order.created_at)}
                     </div>
                   </div>
-                  <span style={{
-                    padding: '4px 12px', borderRadius: 999,
-                    fontSize: 12, fontWeight: 600, textTransform: 'capitalize',
-                    background: style.bg, color: style.color,
-                  }}>
-                    {order.status}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{
+                      padding: '4px 12px', borderRadius: 999,
+                      fontSize: 12, fontWeight: 600, textTransform: 'capitalize',
+                      background: style.bg, color: style.color,
+                    }}>
+                      {order.status}
+                    </span>
+                    <button
+                      onClick={() => handleDownloadInvoice(order.id)}
+                      title="Download Invoice PDF"
+                      style={{
+                        background: 'none', border: '1.5px solid var(--border)',
+                        borderRadius: 8, padding: '3px 9px', cursor: 'pointer',
+                        fontSize: 11, fontFamily: 'inherit', color: 'var(--muted)',
+                      }}
+                    >
+                      ↓ Invoice
+                    </button>
+                  </div>
                 </div>
 
                 {/* Order items */}
@@ -99,7 +126,19 @@ export default function OrdersModal({ onClose }) {
                     fontSize: 13, color: 'var(--dark)',
                     padding: '4px 0', borderTop: i === 0 ? '1px solid var(--border)' : 'none',
                   }}>
-                    <span>{item.product_name} × {item.quantity}</span>
+                    <span>
+                      {item.product_name}
+                      {item.variant_name && (
+                        <span style={{
+                          fontSize: 10, fontWeight: 600, marginLeft: 6,
+                          color: 'var(--gold)', background: 'rgba(201,149,42,0.1)',
+                          padding: '1px 6px', borderRadius: 999,
+                        }}>
+                          {item.variant_name}
+                        </span>
+                      )}
+                      {' '}× {item.quantity}
+                    </span>
                     <span style={{ fontWeight: 600 }}>${item.price}</span>
                   </div>
                 ))}

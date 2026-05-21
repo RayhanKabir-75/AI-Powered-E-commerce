@@ -1,5 +1,19 @@
 from rest_framework import serializers
-from .models import Product, Category
+from .models import Product, Category, ProductVariant, ProductImage
+
+
+class ProductImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = ProductImage
+        fields = ['id', 'image', 'order']
+
+
+class ProductVariantSerializer(serializers.ModelSerializer):
+    effective_price = serializers.ReadOnlyField()
+
+    class Meta:
+        model  = ProductVariant
+        fields = ['id', 'name', 'price', 'effective_price', 'stock']
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -27,10 +41,13 @@ class ProductSerializer(serializers.ModelSerializer):
     avg_rating    = serializers.ReadOnlyField()
     seller_name   = serializers.CharField(source='seller.get_full_name', read_only=True)
     category_name = serializers.CharField(source='category.name', read_only=True)
-
-    # Embed the AI review summary directly in the product detail
-    # Returns null if no summary has been generated yet
     review_summary = ReviewSummaryInlineSerializer(read_only=True)
+    variants       = ProductVariantSerializer(many=True, read_only=True)
+    has_variants   = serializers.SerializerMethodField()
+    gallery        = ProductImageSerializer(many=True, read_only=True)
+
+    def get_has_variants(self, obj):
+        return obj.variants.exists()
 
     class Meta:
         model  = Product
@@ -39,6 +56,8 @@ class ProductSerializer(serializers.ModelSerializer):
             'category', 'category_name',
             'seller', 'seller_name',
             'avg_rating', 'review_summary',
+            'variants', 'has_variants',
+            'gallery',
             'created_at',
         ]
         read_only_fields = ['seller']

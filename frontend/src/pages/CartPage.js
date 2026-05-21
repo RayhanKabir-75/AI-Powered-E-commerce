@@ -1,44 +1,74 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import LogoMark from '../components/LogoMark';
+import { getMediaUrl, validatePromo } from '../api/api';
 import './auth.css';
 
 export default function CartPage({ cart, setCart, user, onLogout }) {
   const navigate  = useNavigate();
-  const [promoCode, setPromoCode] = useState('');
-  const [promoApplied, setPromoApplied] = useState(false);
-  const [promoError, setPromoError]     = useState('');
+  const [promoCode,        setPromoCode]        = useState('');
+  const [promoApplied,     setPromoApplied]     = useState(false);
+  const [promoError,       setPromoError]       = useState('');
+  const [promoLoading,     setPromoLoading]     = useState(false);
+  const [discountPercent,  setDiscountPercent]  = useState(0);
+  const [validPromoCode,   setValidPromoCode]   = useState('');
 
-  const updateQty = (id, delta) => {
+  const getKey = (item) => item.cartKey || String(item.id);
+
+  const updateQty = (key, delta) => {
     setCart(prev =>
       prev.map(item =>
-        item.id === id
+        getKey(item) === key
           ? { ...item, qty: Math.max(1, item.qty + delta) }
           : item
       )
     );
   };
 
-  const removeItem = (id) => {
-    setCart(prev => prev.filter(item => item.id !== id));
+  const removeItem = (key) => {
+    setCart(prev => prev.filter(item => getKey(item) !== key));
   };
 
-  const subtotal  = cart.reduce((s, item) => s + parseFloat(item.price) * item.qty, 0);
-  const discount  = promoApplied ? subtotal * 0.1 : 0;
-  const shipping  = subtotal > 100 ? 0 : 9.99;
-  const total     = subtotal - discount + shipping;
+  const subtotal = cart.reduce((s, item) => s + parseFloat(item.price) * item.qty, 0);
+  const discount = promoApplied ? subtotal * (discountPercent / 100) : 0;
+  const shipping = subtotal > 100 ? 0 : 9.99;
+  const total    = subtotal - discount + shipping;
 
-  const handlePromo = () => {
-    if (promoCode.toUpperCase() === 'SHOPAI10') {
-      setPromoApplied(true);
-      setPromoError('');
-    } else {
-      setPromoError('Invalid promo code.');
+  const handlePromo = async () => {
+    if (!promoCode.trim()) return;
+    setPromoLoading(true);
+    setPromoError('');
+    try {
+      const res = await validatePromo(promoCode.trim());
+      if (res.data.valid) {
+        setPromoApplied(true);
+        setDiscountPercent(res.data.discount_percent);
+        setValidPromoCode(res.data.code);
+        setPromoError('');
+      } else {
+        setPromoApplied(false);
+        setDiscountPercent(0);
+        setValidPromoCode('');
+        setPromoError(res.data.error || 'Invalid promo code.');
+      }
+    } catch (err) {
       setPromoApplied(false);
+      setPromoError(err.response?.data?.error || 'Could not validate promo code.');
+    } finally {
+      setPromoLoading(false);
     }
   };
 
+  const handlePromoRemove = () => {
+    setPromoApplied(false);
+    setDiscountPercent(0);
+    setValidPromoCode('');
+    setPromoCode('');
+    setPromoError('');
+  };
+
   const handleCheckout = () => {
-    navigate('/checkout', { state: { cart, total, discount, shipping } });
+    navigate('/checkout', { state: { cart, total, discount, shipping, promoCode: validPromoCode } });
   };
 
   return (
@@ -46,11 +76,11 @@ export default function CartPage({ cart, setCart, user, onLogout }) {
 
       {/* ── Nav ──────────────────────────────────────────────────────── */}
       <nav className="home-nav">
-        <div className="nav-logo" style={{
+        <div className="nav-logo" onClick={() => navigate('/home')} style={{
           fontFamily: "'Playfair Display', serif", fontSize: 20,
-          fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8,
+          fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
         }}>
-          <div style={{ width: 7, height: 7, background: 'var(--gold)', borderRadius: '50%' }} />
+          <LogoMark size={34} />
           ShopAI
         </div>
         <div className="home-nav-right">
@@ -79,7 +109,7 @@ export default function CartPage({ cart, setCart, user, onLogout }) {
             {/* ── Cart Items ───────────────────────────────────────────── */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               {cart.map(item => (
-                <div key={item.id} style={{
+                <div key={getKey(item)} style={{
                   background: 'var(--panel)', borderRadius: 14, border: '1px solid var(--border)',
                   padding: 20, display: 'flex', gap: 16, alignItems: 'center',
                   animation: 'fadeUp 0.3s ease both',
@@ -92,16 +122,25 @@ export default function CartPage({ cart, setCart, user, onLogout }) {
                     border: '1px solid var(--border)',
                   }}>
                     {item.image
-                      ? <img src={item.image.startsWith('http') ? item.image : `http://localhost:8000${item.image.startsWith('/') ? '' : '/'}${item.image}`}
-                          alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ? <img src={getMediaUrl(item.image)} alt={item.name}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       : item.emoji || '📦'
                     }
                   </div>
 
                   {/* Info */}
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{item.name}</div>
-                    <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>{item.cat || item.category_name}</div>
+                    <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>{item.name}</div>
+                    {item.variant_name && (
+                      <div style={{
+                        display: 'inline-block', fontSize: 11, fontWeight: 600,
+                        color: 'var(--gold)', background: 'rgba(201,149,42,0.1)',
+                        padding: '2px 8px', borderRadius: 999, marginBottom: 4,
+                      }}>
+                        {item.variant_name}
+                      </div>
+                    )}
+                    <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>{item.cat || item.category_name}</div>
                     <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--gold)' }}>
                       ${(parseFloat(item.price) * item.qty).toFixed(2)}
                     </div>
@@ -109,13 +148,13 @@ export default function CartPage({ cart, setCart, user, onLogout }) {
 
                   {/* Qty controls */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <button onClick={() => updateQty(item.id, -1)} style={{
+                    <button onClick={() => updateQty(getKey(item), -1)} style={{
                       width: 30, height: 30, borderRadius: '50%', border: '1.5px solid var(--border)',
                       background: 'none', cursor: 'pointer', fontSize: 16, display: 'flex',
                       alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s',
                     }}>−</button>
                     <span style={{ fontWeight: 700, fontSize: 15, minWidth: 20, textAlign: 'center' }}>{item.qty}</span>
-                    <button onClick={() => updateQty(item.id, 1)} style={{
+                    <button onClick={() => updateQty(getKey(item), 1)} style={{
                       width: 30, height: 30, borderRadius: '50%', border: '1.5px solid var(--border)',
                       background: 'none', cursor: 'pointer', fontSize: 16, display: 'flex',
                       alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s',
@@ -123,7 +162,7 @@ export default function CartPage({ cart, setCart, user, onLogout }) {
                   </div>
 
                   {/* Remove */}
-                  <button onClick={() => removeItem(item.id)} style={{
+                  <button onClick={() => removeItem(getKey(item))} style={{
                     background: 'rgba(192,57,43,0.08)', border: '1.5px solid rgba(192,57,43,0.2)',
                     color: 'var(--danger)', borderRadius: 8, padding: '6px 12px',
                     cursor: 'pointer', fontSize: 13, transition: 'all 0.15s',
@@ -148,7 +187,7 @@ export default function CartPage({ cart, setCart, user, onLogout }) {
                 </div>
                 {promoApplied && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: 'var(--success)' }}>
-                    <span>Promo (10% off)</span>
+                    <span>{validPromoCode} ({discountPercent}% off)</span>
                     <span>−${discount.toFixed(2)}</span>
                   </div>
                 )}
@@ -171,22 +210,43 @@ export default function CartPage({ cart, setCart, user, onLogout }) {
               {/* Promo code */}
               <div style={{ marginBottom: 20 }}>
                 <label style={{ fontSize: 12, fontWeight: 600, marginBottom: 6, display: 'block' }}>Promo Code</label>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <input
-                    value={promoCode}
-                    onChange={e => { setPromoCode(e.target.value); setPromoError(''); }}
-                    placeholder="Enter code"
-                    style={{
-                      flex: 1, padding: '9px 12px', border: '1.5px solid var(--border)',
-                      borderRadius: 8, fontFamily: 'inherit', fontSize: 13, outline: 'none',
-                    }}
-                  />
-                  <button className="btn btn-ghost" style={{ fontSize: 12, padding: '8px 14px' }} onClick={handlePromo}>
-                    Apply
-                  </button>
-                </div>
-                {promoApplied && <div style={{ fontSize: 12, color: 'var(--success)', marginTop: 4 }}>✓ Promo applied!</div>}
-                {promoError  && <div style={{ fontSize: 12, color: 'var(--danger)',  marginTop: 4 }}>{promoError}</div>}
+                {promoApplied ? (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    background: 'rgba(39,174,96,0.08)', border: '1.5px solid rgba(39,174,96,0.3)',
+                    borderRadius: 8, padding: '9px 12px',
+                  }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--success)' }}>
+                      ✓ {validPromoCode} — {discountPercent}% off
+                    </span>
+                    <button onClick={handlePromoRemove} style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: 'var(--muted)', fontSize: 16, lineHeight: 1,
+                    }}>✕</button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      value={promoCode}
+                      onChange={e => { setPromoCode(e.target.value); setPromoError(''); }}
+                      onKeyDown={e => e.key === 'Enter' && handlePromo()}
+                      placeholder="Enter code"
+                      style={{
+                        flex: 1, padding: '9px 12px', border: '1.5px solid var(--border)',
+                        borderRadius: 8, fontFamily: 'inherit', fontSize: 13, outline: 'none',
+                      }}
+                    />
+                    <button
+                      className="btn btn-ghost"
+                      style={{ fontSize: 12, padding: '8px 14px' }}
+                      onClick={handlePromo}
+                      disabled={promoLoading}
+                    >
+                      {promoLoading ? '…' : 'Apply'}
+                    </button>
+                  </div>
+                )}
+                {promoError && <div style={{ fontSize: 12, color: 'var(--danger)', marginTop: 4 }}>{promoError}</div>}
               </div>
 
               <button className="btn btn-primary" style={{ width: '100%', padding: '14px', fontSize: 15 }}

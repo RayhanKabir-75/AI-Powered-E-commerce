@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { logoutUser, getProducts, getRecommendations } from '../api/api';
+import { logoutUser, getProducts, getRecommendations, getMediaUrl } from '../api/api';
 import ProfileModal       from '../components/ProfileModal';
 import OrdersModal        from '../components/OrdersModal';
+import LogoMark           from '../components/LogoMark';
 import AIDescriptionModal from '../components/AIDescriptionModal';
 import './auth.css';
 
@@ -12,7 +13,7 @@ const CATEGORY_EMOJIS = {
   Clothing: '👕', Other: '📦',
 };
 
-export default function HomePage({ user, onLogout, cart, setCart }) {
+export default function HomePage({ user, onLogout, cart, setCart, wishlistIds = new Set(), onToggleWishlist }) {
   const navigate = useNavigate();
   const location = useLocation();
   const menuRef  = useRef(null);
@@ -29,7 +30,7 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
 
   const [products,         setProducts]         = useState([]);
   const [fetching,         setFetching]         = useState(true);
-  const [searchQuery,      setSearchQuery]       = useState('');
+  const [searchInput,      setSearchInput]        = useState('');
   const [recs,             setRecs]             = useState([]);
   const [recsFetching,     setRecsFetching]     = useState(true);
   const [showAllRecs,      setShowAllRecs]      = useState(false);
@@ -104,16 +105,18 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
 
   const getEmoji = (p) => CATEGORY_EMOJIS[p.category_name] || '📦';
 
-  const visibleProducts = products.filter(p => {
-    const matchesCategory = !activeCategory || p.category_name === activeCategory;
-    const matchesSearch   = !searchQuery    ||
-      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (p.category_name || '').toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  const visibleProducts = products.filter(p =>
+    !activeCategory || p.category_name === activeCategory
+  );
+
+  const doSearch = () => {
+    const q = searchInput.trim();
+    if (q) navigate(`/search?q=${encodeURIComponent(q)}`);
+  };
 
   const menuItems = [
     { icon: '🛒', label: `Cart (${cartCount})`,   action: () => { navigate('/cart'); setMenuOpen(false); } },
+    { icon: '♥',  label: 'My Wishlist',            action: () => { navigate('/wishlist'); setMenuOpen(false); } },
     { icon: '👤', label: 'Edit Profile',           action: () => { setProfileOpen(true); setMenuOpen(false); } },
     { icon: '📦', label: 'Track Orders',           action: () => { setOrdersOpen(true); setMenuOpen(false); } },
     ...(currentUser.role === 'seller' ? [{
@@ -128,11 +131,11 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
 
       {/* ── Sticky Nav ─────────────────────────────────────────────────────── */}
       <nav className="home-nav">
-        <div className="nav-logo" style={{
+        <div className="nav-logo" onClick={() => navigate('/home')} style={{
           fontFamily: "'Playfair Display', serif", fontSize: 20,
-          fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8,
+          fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
         }}>
-          <div style={{ width: 7, height: 7, background: 'var(--gold)', borderRadius: '50%' }} />
+          <LogoMark size={34} />
           ShopAI
         </div>
 
@@ -197,12 +200,11 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
         <div className="home-search">
           <input
             placeholder="Search products, categories…"
-            value={searchQuery}
-            onChange={e => { setSearchQuery(e.target.value); setActiveCategory(null); }}
+            value={searchInput}
+            onChange={e => setSearchInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && doSearch()}
           />
-          <button onClick={() => setSearchQuery('')}>
-            {searchQuery ? 'Clear' : 'Search'}
-          </button>
+          <button onClick={doSearch}>Search</button>
         </div>
       </div>
 
@@ -247,16 +249,29 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
                   className="rec-card"
                   onClick={() => navigate(`/product/${p.id}`)}
                 >
-                  <div className="rec-card-img">
+                  <div className="rec-card-img" style={{ position: 'relative' }}>
                     {p.image
-                      ? <img
-                          src={p.image.startsWith('http') ? p.image : `http://localhost:8000${p.image.startsWith('/') ? '' : '/'}${p.image}`}
-                          alt={p.name}
-                        />
+                      ? <img src={getMediaUrl(p.image)} alt={p.name} />
                       : getEmoji(p)
                     }
                     {p.category_name && (
                       <span className="rec-card-cat">{p.category_name}</span>
+                    )}
+                    {onToggleWishlist && (
+                      <button
+                        onClick={e => { e.stopPropagation(); onToggleWishlist(p.id); }}
+                        title={wishlistIds.has(p.id) ? 'Remove from wishlist' : 'Save to wishlist'}
+                        style={{
+                          position: 'absolute', top: 8, right: 8,
+                          background: 'rgba(255,255,255,0.92)', border: 'none',
+                          borderRadius: '50%', width: 28, height: 28, cursor: 'pointer',
+                          fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
+                          color: wishlistIds.has(p.id) ? '#e74c3c' : '#aaa',
+                        }}
+                      >
+                        {wishlistIds.has(p.id) ? '♥' : '♡'}
+                      </button>
                     )}
                   </div>
                   <div className="rec-card-body">
@@ -303,10 +318,10 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
         {/* Products grid */}
         <div className="section-header">
           <h2 className="section-title">
-            {activeCategory ? `${activeCategory} Products` : searchQuery ? `Results for "${searchQuery}"` : 'All Products'}
+            {activeCategory ? `${activeCategory} Products` : 'All Products'}
           </h2>
-          <span className="section-link" style={{ cursor: 'pointer' }} onClick={() => { setActiveCategory(null); setSearchQuery(''); }}>
-            {(activeCategory || searchQuery) ? 'Clear filter →' : ''}
+          <span className="section-link" style={{ cursor: 'pointer' }} onClick={() => setActiveCategory(null)}>
+            {activeCategory ? 'Clear filter →' : ''}
           </span>
         </div>
 
@@ -334,15 +349,27 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
                 onClick={() => navigate(`/product/${p.id}`)}>
 
 
-                <div className="product-img">
+                <div className="product-img" style={{ position: 'relative' }}>
                   {p.image
-                    ? <img
-                        src={p.image.startsWith('http') ? p.image : `http://localhost:8000${p.image.startsWith('/') ? '' : '/'}${p.image}`}
-                        alt={p.name}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      />
+                    ? <img src={getMediaUrl(p.image)} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     : getEmoji(p)
                   }
+                  {onToggleWishlist && (
+                    <button
+                      onClick={e => { e.stopPropagation(); onToggleWishlist(p.id); }}
+                      title={wishlistIds.has(p.id) ? 'Remove from wishlist' : 'Save to wishlist'}
+                      style={{
+                        position: 'absolute', top: 8, right: 8,
+                        background: 'rgba(255,255,255,0.92)', border: 'none',
+                        borderRadius: '50%', width: 30, height: 30, cursor: 'pointer',
+                        fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
+                        color: wishlistIds.has(p.id) ? '#e74c3c' : '#aaa',
+                      }}
+                    >
+                      {wishlistIds.has(p.id) ? '♥' : '♡'}
+                    </button>
+                  )}
                 </div>
 
                 <div className="product-info">
@@ -395,7 +422,7 @@ export default function HomePage({ user, onLogout, cart, setCart }) {
                 color:       activeCategory === c ? '#fff' : '',
                 borderColor: activeCategory === c ? 'var(--gold)' : '',
               }}
-              onClick={() => { setActiveCategory(activeCategory === c ? null : c); setSearchQuery(''); }}>
+              onClick={() => setActiveCategory(activeCategory === c ? null : c)}>
               {c}
             </button>
           ))}

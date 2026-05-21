@@ -1,10 +1,19 @@
 import axios from 'axios';
 
 // ── Axios instance ──────────────────────────────────────
+const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/';
+
 const API = axios.create({
-  baseURL: 'http://localhost:8000/api/',
-  withCredentials: true, // important for Django session cookies
+  baseURL: BASE_URL,
+  withCredentials: true,
 });
+
+export const getMediaUrl = (path) => {
+  if (!path) return null;
+  if (path.startsWith('http')) return path;
+  const mediaBase = BASE_URL.replace(/\/api\/?$/, '');
+  return `${mediaBase}${path.startsWith('/') ? '' : '/'}${path}`;
+};
 
 // ── CSRF interceptor ────────────────────────────────────
 function getCookie(name) {
@@ -63,16 +72,46 @@ export const getOrder = (id) => API.get(`orders/${id}/`);
 export const placeOrder = (data) => API.post('orders/place/', data);
 export const updateOrderStatus = (id, status) => API.patch(`orders/${id}/status/`, { status });
 export const cancelOrder = (id) => API.post(`orders/${id}/cancel/`);
+export const downloadInvoice = async (orderId) => {
+  const token = localStorage.getItem('token');
+  const res = await fetch(`${BASE_URL}orders/${orderId}/invoice/`, {
+    headers: { 'Authorization': `Token ${token}` },
+  });
+  if (!res.ok) throw new Error('Failed to download invoice');
+  return res.blob();
+};
 
 // ── Reviews ────────────────────────────────────────────
-export const getReviews = (productId) => API.get(`products/${productId}/reviews/`);
-export const getReviewSummary = (productId) => API.get(`products/${productId}/reviews/summary/`);
-export const submitReview = (productId, data) => API.post(`products/${productId}/reviews/`, data);
+export const getReviews        = (productId) => API.get('reviews/', { params: { product: productId } });
+export const getReviewSummary  = (productId) => API.get(`reviews/summary/${productId}/`);
+export const submitReview      = (data)      => API.post('reviews/submit/', data);
 export const regenerateSummary = (productId) => API.post(`reviews/summary/${productId}/regenerate/`);
+export const voteReview        = (reviewId)  => API.post(`reviews/${reviewId}/vote/`);
+
+// ── Promo codes ───────────────────────────────────────
+export const validatePromo    = (code) => API.post('orders/validate-promo/', { code });
+export const getPromoCodes    = ()     => API.get('orders/admin/promos/');
+export const createPromoCode  = (data) => API.post('orders/admin/promos/', data);
+export const deletePromoCode  = (id)   => API.delete(`orders/admin/promos/${id}/`);
+export const togglePromoCode  = (id)   => API.patch(`orders/admin/promos/${id}/`);
 
 // ── Admin ─────────────────────────────────────────────
 export const getAdminStats  = ()       => API.get('orders/admin/stats/');
 export const getAdminOrders = (params) => API.get('orders/admin/orders/', { params });
+
+// ── Variants ─────────────────────────────────────────
+export const getVariants    = (productId)            => API.get(`products/${productId}/variants/`);
+export const createVariant  = (productId, data)      => API.post(`products/${productId}/variants/`, data);
+export const deleteVariant  = (productId, variantId) => API.delete(`products/${productId}/variants/${variantId}/`);
+
+// ── Gallery ───────────────────────────────────────────
+export const getGallery     = (productId)            => API.get(`products/${productId}/gallery/`);
+export const addGalleryImage = (productId, formData) => API.post(`products/${productId}/gallery/`, formData);
+export const deleteGalleryImage = (productId, imageId) => API.delete(`products/${productId}/gallery/${imageId}/`);
+
+// ── Wishlist ──────────────────────────────────────────
+export const getWishlist     = ()           => API.get('wishlist/');
+export const toggleWishlist  = (productId) => API.post('wishlist/toggle/', { product_id: productId });
 
 // ── Chatbot ───────────────────────────────────────────
 export const chatbotSend = (data) => API.post('chatbot/', data);

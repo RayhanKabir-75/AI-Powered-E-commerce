@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import LogoMark from '../components/LogoMark';
 import './auth.css';
 
 export default function LandingPage() {
@@ -10,13 +11,12 @@ export default function LandingPage() {
       <div className="landing-dots" />
 
       <nav className="nav">
-        <div className="nav-logo">
-          <div className="nav-logo-dot" />
+        <div className="nav-logo" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
+          <LogoMark size={34} />
           ShopAI
         </div>
         <div className="nav-actions">
-          <button className="btn btn-ghost"   onClick={() => navigate('/login')}>Log in</button>
-          <button className="btn btn-primary" onClick={() => navigate('/signup')}>Get started</button>
+          <button className="btn btn-primary" onClick={() => navigate('/login')}>Log in</button>
         </div>
       </nav>
 
@@ -30,8 +30,8 @@ export default function LandingPage() {
           product listings, and keeps customers engaged with a conversational assistant.
         </p>
         <div className="hero-cta">
-          <button className="btn btn-gold"    onClick={() => navigate('/signup')}>Start for free →</button>
-          <button className="btn btn-outline" onClick={() => navigate('/login')}>Sign in</button>
+          <button className="btn btn-gold"    onClick={() => navigate('/signup')}>Sign Up</button>
+          <button className="btn btn-outline" onClick={() => navigate('/login')}>Login</button>
         </div>
       </section>
 

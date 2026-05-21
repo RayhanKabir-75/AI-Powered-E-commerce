@@ -37,6 +37,32 @@ class Product(models.Model):
         return round(sum(r.rating for r in reviews) / reviews.count(), 1)
 
 
+class ProductVariant(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='variants')
+    name    = models.CharField(max_length=100)   # e.g. "Small / Red"
+    price   = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    stock   = models.IntegerField(default=0)
+
+    def __str__(self):
+        return f"{self.product.name} — {self.name}"
+
+    @property
+    def effective_price(self):
+        return self.price if self.price is not None else self.product.price
+
+
+class ProductImage(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='gallery')
+    image   = models.ImageField(upload_to='products/gallery/')
+    order   = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['order', 'id']
+
+    def __str__(self):
+        return f"Gallery image for {self.product.name}"
+
+
 class BrowsingHistory(models.Model):
     user        = models.ForeignKey(
         settings.AUTH_USER_MODEL,

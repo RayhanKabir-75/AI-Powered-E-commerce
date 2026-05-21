@@ -3,19 +3,25 @@ from .models import Review, ProductReviewSummary
 
 
 class ReviewSerializer(serializers.ModelSerializer):
-    customer_name = serializers.SerializerMethodField()
+    customer_name  = serializers.SerializerMethodField()
+    helpful_votes  = serializers.IntegerField(read_only=True, default=0)
+    user_has_voted = serializers.SerializerMethodField()
 
     class Meta:
         model  = Review
         fields = [
             'id', 'product', 'customer', 'customer_name',
-            'rating', 'comment', 'sentiment', 'created_at'
+            'rating', 'comment', 'sentiment', 'created_at',
+            'helpful_votes', 'user_has_voted',
         ]
         read_only_fields = ['customer', 'sentiment', 'created_at']
-        # sentiment is read-only because it is auto-set by NLP on submit
 
     def get_customer_name(self, obj):
         return obj.customer.get_full_name()
+
+    def get_user_has_voted(self, obj):
+        voted_ids = self.context.get('voted_ids', set())
+        return obj.id in voted_ids
 
     def validate_rating(self, value):
         if not 1 <= value <= 5:
