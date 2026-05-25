@@ -3,6 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from ecommerce.throttles import OrderRateThrottle
+from ecommerce.pagination import StandardPagination
 from django.db import transaction
 from django.db.models import Sum, Count, F
 from django.utils import timezone
@@ -32,8 +33,9 @@ def list_orders(request):
         customer=request.user
     ).prefetch_related('items__product').order_by('-created_at')
 
-    serializer = OrderSerializer(orders, many=True)
-    return Response(serializer.data)
+    paginator = StandardPagination()
+    page = paginator.paginate_queryset(orders, request)
+    return paginator.get_paginated_response(OrderSerializer(page, many=True).data)
 
 
 # ── Get single order detail ───────────────────────────────────────────────────
@@ -238,15 +240,15 @@ def seller_orders(request):
         items__product__seller=request.user
     ).prefetch_related('items__product').order_by('-created_at').distinct()
 
+    paginator = StandardPagination()
+    page = paginator.paginate_queryset(orders, request)
     result = []
-    for order in orders:
+    for order in page:
         data = OrderSerializer(order).data
-        # Replace items with only this seller's items
         seller_items = order.items.filter(product__seller=request.user)
         data['items'] = OrderItemSerializer(seller_items, many=True).data
         result.append(data)
-
-    return Response(result)
+    return paginator.get_paginated_response(result)
 
 
 # ── Admin: aggregated stats ───────────────────────────────────────────────────
@@ -350,7 +352,9 @@ def admin_all_orders(request):
     if status_filter:
         qs = qs.filter(status=status_filter)
 
-    return Response(OrderSerializer(qs, many=True).data)
+    paginator = StandardPagination()
+    page = paginator.paginate_queryset(qs, request)
+    return paginator.get_paginated_response(OrderSerializer(page, many=True).data)
 
 
 # ── Validate a promo code (any authenticated user) ────────────────────────────
@@ -394,7 +398,9 @@ def admin_promos(request):
 
     if request.method == 'GET':
         promos = PromoCode.objects.order_by('-created_at')
-        return Response(PromoCodeSerializer(promos, many=True).data)
+        paginator = StandardPagination()
+        page = paginator.paginate_queryset(promos, request)
+        return paginator.get_paginated_response(PromoCodeSerializer(page, many=True).data)
 
     # POST — create new promo
     code = request.data.get('code', '').strip().upper()

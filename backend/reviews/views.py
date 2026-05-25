@@ -14,6 +14,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 from django.db.models import Count
+from ecommerce.pagination import StandardPagination
 
 from .models import Review, ProductReviewSummary, ReviewHelpfulVote
 from .serializers import ReviewSerializer, ProductReviewSummarySerializer
@@ -80,17 +81,19 @@ def list_reviews(request):
         .order_by('-helpful_votes', '-created_at')
     )
 
-    # Build the set of review IDs this user has voted on (single query)
+    paginator = StandardPagination()
+    page = paginator.paginate_queryset(reviews, request)
+
     voted_ids = set()
     if request.user.is_authenticated:
         voted_ids = set(
             ReviewHelpfulVote.objects
-            .filter(user=request.user, review__in=reviews)
+            .filter(user=request.user, review__in=page)
             .values_list('review_id', flat=True)
         )
 
-    serializer = ReviewSerializer(reviews, many=True, context={'voted_ids': voted_ids})
-    return Response(serializer.data)
+    serializer = ReviewSerializer(page, many=True, context={'voted_ids': voted_ids})
+    return paginator.get_paginated_response(serializer.data)
 
 
 # ── Submit a review ───────────────────────────────────────────────────────────

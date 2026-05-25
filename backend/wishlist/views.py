@@ -6,6 +6,7 @@ from rest_framework import status
 from products.models import Product
 from .models import WishlistItem
 from .serializers import WishlistItemSerializer
+from ecommerce.pagination import StandardPagination
 
 
 @api_view(['GET'])
@@ -13,7 +14,9 @@ from .serializers import WishlistItemSerializer
 def list_wishlist(request):
     """GET /api/wishlist/ — return all saved items for the current user."""
     items = WishlistItem.objects.filter(user=request.user).select_related('product__category').order_by('-created_at')
-    return Response(WishlistItemSerializer(items, many=True).data)
+    paginator = StandardPagination()
+    page = paginator.paginate_queryset(items, request)
+    return paginator.get_paginated_response(WishlistItemSerializer(page, many=True).data)
 
 
 @api_view(['POST'])

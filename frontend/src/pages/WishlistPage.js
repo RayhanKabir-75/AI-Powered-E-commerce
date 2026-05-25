@@ -19,7 +19,7 @@ export default function WishlistPage({ cart, setCart, wishlist, onToggle }) {
 
   useEffect(() => {
     getWishlist()
-      .then(res => setItems(res.data))
+      .then(res => setItems(res.data.results ?? res.data))
       .catch(() => setItems([]))
       .finally(() => setLoading(false));
   }, []);
