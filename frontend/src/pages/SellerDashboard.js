@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { createProduct, getProducts, updateProduct, deleteProduct, updateOrderStatus, generateDescription, getMediaUrl, getVariants, createVariant, deleteVariant, getGallery, addGalleryImage, deleteGalleryImage } from '../api/api';
 import API from '../api/api';
 import LogoMark from '../components/LogoMark';
+import SellerAnalytics from '../components/SellerAnalytics';
 import './auth.css';
 
 const CATEGORY_EMOJIS = {
@@ -290,6 +291,7 @@ export default function SellerDashboard({ user, onLogout }) {
     { icon: '➕', label: 'Add New Product', action: () => { openAddForm(); setMenuOpen(false); } },
     { icon: '📦', label: 'My Products',     action: () => { setTab('products'); setMenuOpen(false); } },
     { icon: '🧾', label: 'Incoming Orders', action: () => { setTab('orders'); setMenuOpen(false); } },
+    { icon: '📊', label: 'Analytics',       action: () => { setTab('analytics'); setMenuOpen(false); } },
     { icon: '🚪', label: 'Log out',         action: handleLogout, danger: true },
   ];
 
@@ -402,8 +404,9 @@ export default function SellerDashboard({ user, onLogout }) {
         {/* ── Tabs ───────────────────────────────────────────────────────── */}
         <div style={{ display: 'flex', gap: 4, marginBottom: 28, borderBottom: '2px solid var(--border)' }}>
           {[
-            { key: 'products', label: '📦 My Products' },
-            { key: 'orders',   label: `🧾 Incoming Orders${pendingOrders > 0 ? ` (${pendingOrders} pending)` : ''}` },
+            { key: 'products',  label: '📦 My Products' },
+            { key: 'orders',    label: `🧾 Incoming Orders${pendingOrders > 0 ? ` (${pendingOrders} pending)` : ''}` },
+            { key: 'analytics', label: '📊 Analytics' },
           ].map(t => (
             <button key={t.key} onClick={() => setTab(t.key)} style={{
               background: 'none', border: 'none', padding: '10px 20px',
@@ -516,7 +519,6 @@ export default function SellerDashboard({ user, onLogout }) {
                     🎨 Product Variants <span style={{ fontWeight: 400, color: 'var(--muted)', fontSize: 12 }}>(size, colour, etc.)</span>
                   </div>
 
-                  {/* Existing variants */}
                   {variants.length > 0 && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
                       {variants.map(v => (
@@ -537,7 +539,6 @@ export default function SellerDashboard({ user, onLogout }) {
                     </div>
                   )}
 
-                  {/* Add variant form */}
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
                     <div style={{ flex: '2 1 120px' }}>
                       <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4 }}>Option name *</label>
@@ -603,7 +604,6 @@ export default function SellerDashboard({ user, onLogout }) {
                     🖼️ Photo Gallery <span style={{ fontWeight: 400, color: 'var(--muted)', fontSize: 12 }}>(additional product images)</span>
                   </div>
 
-                  {/* Existing gallery thumbnails */}
                   {galleryImages.length > 0 && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
                       {galleryImages.map(g => {
@@ -632,7 +632,6 @@ export default function SellerDashboard({ user, onLogout }) {
                     </div>
                   )}
 
-                  {/* Upload new gallery image */}
                   <label style={{
                     display: 'inline-flex', alignItems: 'center', gap: 8,
                     padding: '7px 14px', borderRadius: 8, fontSize: 13,
@@ -797,6 +796,12 @@ export default function SellerDashboard({ user, onLogout }) {
             )}
           </>
         )}
+
+        {/* ── Analytics Tab ────────────────────────────────────────────────── */}
+        {tab === 'analytics' && (
+          <SellerAnalytics products={products} orders={orders} />
+        )}
+
       </div>
 
       {/* ── Delete Confirm Modal ─────────────────────────────────────────── */}
