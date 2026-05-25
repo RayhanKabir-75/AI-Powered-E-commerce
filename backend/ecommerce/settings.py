@@ -74,7 +74,7 @@ else:
             'ENGINE': 'django.db.backends.mysql',
             'NAME': 'ecommerce_db',
             'USER': 'root',
-            'PASSWORD': 'sAnu7501',
+            'PASSWORD': '1207',
             'HOST': 'localhost',
             'PORT': '3306',
         }
