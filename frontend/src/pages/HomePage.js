@@ -5,6 +5,7 @@ import ProfileModal       from '../components/ProfileModal';
 import OrdersModal        from '../components/OrdersModal';
 import LogoMark           from '../components/LogoMark';
 import AIDescriptionModal from '../components/AIDescriptionModal';
+import ProductComparison, { useCompare, CompareButton } from '../components/ProductComparison';
 import './auth.css';
 
 const CATEGORY_EMOJIS = {
@@ -28,12 +29,15 @@ export default function HomePage({ user, onLogout, cart, setCart, wishlistIds = 
   const [activeCategory,  setActiveCategory]  = useState(null);
   const [currentUser,     setCurrentUser]     = useState(user);
 
-  const [products,         setProducts]         = useState([]);
-  const [fetching,         setFetching]         = useState(true);
-  const [searchInput,      setSearchInput]        = useState('');
-  const [recs,             setRecs]             = useState([]);
-  const [recsFetching,     setRecsFetching]     = useState(true);
-  const [showAllRecs,      setShowAllRecs]      = useState(false);
+  const [products,     setProducts]     = useState([]);
+  const [fetching,     setFetching]     = useState(true);
+  const [searchInput,  setSearchInput]  = useState('');
+  const [recs,         setRecs]         = useState([]);
+  const [recsFetching, setRecsFetching] = useState(true);
+  const [showAllRecs,  setShowAllRecs]  = useState(false);
+
+  // ── Compare state ────────────────────────────────────────────────────────
+  const { compareList, toggleCompare, removeFromCompare, clearCompare } = useCompare();
 
   const cartCount = cart.reduce((s, i) => s + i.qty, 0);
 
@@ -62,13 +66,10 @@ export default function HomePage({ user, onLogout, cart, setCart, wishlistIds = 
   }, []);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
-  useEffect(() => { fetchRecs(); }, [fetchRecs]);
+  useEffect(() => { fetchRecs(); },     [fetchRecs]);
 
-  // Auto-open orders modal if redirected from order confirmation
   useEffect(() => {
-    if (location.state?.openOrders) {
-      setOrdersOpen(true);
-    }
+    if (location.state?.openOrders) setOrdersOpen(true);
   }, [location.state]);
 
   useEffect(() => {
@@ -348,7 +349,6 @@ export default function HomePage({ user, onLogout, cart, setCart, wishlistIds = 
                 style={{ animationDelay: `${0.05 * i}s` }}
                 onClick={() => navigate(`/product/${p.id}`)}>
 
-
                 <div className="product-img" style={{ position: 'relative' }}>
                   {p.image
                     ? <img src={getMediaUrl(p.image)} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -383,7 +383,8 @@ export default function HomePage({ user, onLogout, cart, setCart, wishlistIds = 
                   </div>
                 </div>
 
-                <div style={{ padding: '8px 14px 14px' }} onClick={e => e.stopPropagation()}>
+                {/* ── Card action buttons ── */}
+                <div style={{ padding: '8px 14px 14px', display: 'flex', flexDirection: 'column', gap: 6 }} onClick={e => e.stopPropagation()}>
                   {p.stock > 0 ? (
                     <button
                       className="btn btn-primary"
@@ -402,6 +403,7 @@ export default function HomePage({ user, onLogout, cart, setCart, wishlistIds = 
                       Out of Stock
                     </button>
                   )}
+                  <CompareButton product={p} compareList={compareList} onToggle={toggleCompare} />
                 </div>
               </div>
             ))}
@@ -439,6 +441,15 @@ export default function HomePage({ user, onLogout, cart, setCart, wishlistIds = 
       )}
       {ordersOpen  && <OrdersModal        onClose={() => setOrdersOpen(false)} />}
       {aiDescOpen  && <AIDescriptionModal onClose={() => setAiDescOpen(false)} />}
+
+      {/* ── Product Comparison ───────────────────────────────────────────── */}
+      <ProductComparison
+        compareList={compareList}
+        onRemove={removeFromCompare}
+        onClear={clearCompare}
+        onAddToCart={addToCart}
+        getMediaUrl={getMediaUrl}
+      />
     </div>
   );
 }
