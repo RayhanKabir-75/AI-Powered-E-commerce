@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getProducts, getMediaUrl } from '../api/api';
 import LogoMark from '../components/LogoMark';
+import ProductComparison, { useCompare, CompareButton } from '../components/ProductComparison';
 import './auth.css';
 
 const CATEGORY_EMOJIS = {
@@ -15,9 +16,12 @@ export default function SearchResultsPage({ cart, setCart, wishlistIds = new Set
   const [searchParams] = useSearchParams();
   const query = searchParams.get('q') || '';
 
-  const [products,    setProducts]    = useState([]);
-  const [loading,     setLoading]     = useState(true);
-  const [inputValue,  setInputValue]  = useState(query);
+  const [products,   setProducts]   = useState([]);
+  const [loading,    setLoading]    = useState(true);
+  const [inputValue, setInputValue] = useState(query);
+
+  // ── Compare state ────────────────────────────────────────────────────────
+  const { compareList, toggleCompare, removeFromCompare, clearCompare } = useCompare();
 
   const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
 
@@ -44,7 +48,7 @@ export default function SearchResultsPage({ cart, setCart, wishlistIds = new Set
   };
 
   const addToCart = (e, p) => {
-    e.stopPropagation();
+    if (e) e.stopPropagation();
     setCart(prev => {
       const existing = prev.find(i => i.id === p.id);
       if (existing) return prev.map(i => i.id === p.id ? { ...i, quantity: i.quantity + 1 } : i);
@@ -166,6 +170,7 @@ export default function SearchResultsPage({ cart, setCart, wishlistIds = new Set
                     </button>
                   )}
                 </div>
+
                 <div className="product-info">
                   <div className="product-name">{p.name}</div>
                   <div className="product-cat">{p.category_name || '—'}</div>
@@ -176,7 +181,9 @@ export default function SearchResultsPage({ cart, setCart, wishlistIds = new Set
                     </div>
                   </div>
                 </div>
-                <div style={{ padding: '0 14px 14px' }}>
+
+                {/* ── Card action buttons ── */}
+                <div style={{ padding: '0 14px 14px', display: 'flex', flexDirection: 'column', gap: 6 }} onClick={e => e.stopPropagation()}>
                   {p.stock > 0 ? (
                     <button
                       className="btn btn-primary"
@@ -194,12 +201,22 @@ export default function SearchResultsPage({ cart, setCart, wishlistIds = new Set
                       Out of Stock
                     </button>
                   )}
+                  <CompareButton product={p} compareList={compareList} onToggle={toggleCompare} />
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* ── Product Comparison ───────────────────────────────────────────── */}
+      <ProductComparison
+        compareList={compareList}
+        onRemove={removeFromCompare}
+        onClear={clearCompare}
+        onAddToCart={(p) => addToCart(null, p)}
+        getMediaUrl={getMediaUrl}
+      />
     </div>
   );
 }
