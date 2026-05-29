@@ -88,7 +88,7 @@ export default function SellerDashboard({ user, onLogout }) {
   const fetchOrders = useCallback(async () => {
     try {
       const res = await API.get('orders/seller/');
-      setOrders(res.data);
+      setOrders(res.data.results ?? res.data);
     } catch { console.error('Failed to load orders'); }
   }, []);
 

@@ -92,7 +92,7 @@ export default function AdminDashboard({ user, onLogout }) {
     try {
       const params = statusVal ? { status: statusVal } : {};
       const res = await getAdminOrders(params);
-      setOrders(res.data);
+      setOrders(res.data.results ?? res.data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -123,7 +123,7 @@ export default function AdminDashboard({ user, onLogout }) {
   const fetchPromos = async () => {
     try {
       const res = await getPromoCodes();
-      setPromos(res.data);
+      setPromos(res.data.results ?? res.data);
       setPromosLoaded(true);
     } catch { setPromoError('Failed to load promo codes.'); }
   };

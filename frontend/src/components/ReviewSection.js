@@ -93,7 +93,7 @@ export default function ReviewSection({ productId, user }) {
           getReviews(productId),
           getReviewSummary(productId),
         ]);
-        if (reviewsRes.status === 'fulfilled') setReviews(reviewsRes.value.data);
+        if (reviewsRes.status === 'fulfilled') setReviews(reviewsRes.value.data.results ?? reviewsRes.value.data);
         if (summaryRes.status === 'fulfilled') setSummary(summaryRes.value.data);
       } catch (_) {}
       finally { setLoading(false); }

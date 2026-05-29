@@ -18,7 +18,7 @@ export default function OrdersModal({ onClose }) {
     const fetchOrders = async () => {
       try {
         const res = await API.get('orders/');
-        setOrders(res.data);
+        setOrders(res.data.results ?? res.data);
       } catch (err) {
         // If orders endpoint not built yet, show friendly placeholder
         if (err.response?.status === 404) {
