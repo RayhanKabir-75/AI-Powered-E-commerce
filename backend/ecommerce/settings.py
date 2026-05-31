@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     'chatbot',
     'product_ai',
     'wishlist',
+    'alerts',
 ]
 
 MIDDLEWARE = [

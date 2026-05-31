@@ -113,6 +113,11 @@ export const deleteGalleryImage = (productId, imageId) => API.delete(`products/$
 export const getWishlist     = ()           => API.get('wishlist/');
 export const toggleWishlist  = (productId) => API.post('wishlist/toggle/', { product_id: productId });
 
+// ── Price Drop Alerts ─────────────────────────────────
+export const getAlerts   = ()                       => API.get('alerts/');
+export const setAlert    = (productId, targetPrice) => API.post('alerts/', { product: productId, target_price: targetPrice });
+export const deleteAlert = (productId)              => API.delete(`alerts/${productId}/`);
+
 // ── Chatbot ───────────────────────────────────────────
 export const chatbotSend = (data) => API.post('chatbot/', data);
 

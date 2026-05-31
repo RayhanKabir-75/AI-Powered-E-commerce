@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import LogoMark from '../components/LogoMark';
-import { getProduct, trackProductView, getMediaUrl } from '../api/api';
+import { getProduct, trackProductView, getMediaUrl, setAlert, deleteAlert, getAlerts } from '../api/api';
 import ReviewSection from '../components/ReviewSection';
 
 function Gallery({ mainImage, galleryImages, productName, getEmoji, product }) {
@@ -82,6 +82,10 @@ export default function ProductPage({ user, cart, setCart, wishlistIds = new Set
   const [addedToCart,     setAddedToCart]     = useState(false);
   const [qty,             setQty]             = useState(1);
   const [selectedVariant, setSelectedVariant] = useState(null);
+  const [alertPrice,      setAlertPrice]      = useState('');
+  const [alertActive,     setAlertActive]     = useState(false);
+  const [alertSaving,     setAlertSaving]     = useState(false);
+  const [alertMsg,        setAlertMsg]        = useState('');
 
   const cartCount = cart.reduce((s, i) => s + i.qty, 0);
 
@@ -99,6 +103,49 @@ export default function ProductPage({ user, cart, setCart, wishlistIds = new Set
     };
     fetch();
   }, [id]);
+
+  useEffect(() => {
+    if (!user || user.role !== 'customer' || !id) return;
+    getAlerts().then(res => {
+      const list = res.data.results ?? res.data;
+      const existing = list.find(a => a.product === parseInt(id));
+      if (existing) {
+        setAlertActive(true);
+        setAlertPrice(existing.target_price);
+      }
+    }).catch(() => {});
+  }, [user, id]);
+
+  const handleAlertSave = async () => {
+    if (!alertPrice || parseFloat(alertPrice) <= 0) return;
+    setAlertSaving(true);
+    setAlertMsg('');
+    try {
+      await setAlert(parseInt(id), alertPrice);
+      setAlertActive(true);
+      setAlertMsg('Alert saved! We\'ll email you when the price drops.');
+    } catch {
+      setAlertMsg('Could not save alert. Please try again.');
+    } finally {
+      setAlertSaving(false);
+      setTimeout(() => setAlertMsg(''), 4000);
+    }
+  };
+
+  const handleAlertRemove = async () => {
+    setAlertSaving(true);
+    try {
+      await deleteAlert(parseInt(id));
+      setAlertActive(false);
+      setAlertPrice('');
+      setAlertMsg('Alert removed.');
+    } catch {
+      setAlertMsg('Could not remove alert.');
+    } finally {
+      setAlertSaving(false);
+      setTimeout(() => setAlertMsg(''), 3000);
+    }
+  };
 
   const hasVariants  = product?.variants?.length > 0;
   const activeStock  = selectedVariant ? selectedVariant.stock : (product?.stock ?? 0);
@@ -385,6 +432,71 @@ export default function ProductPage({ user, cart, setCart, wishlistIds = new Set
                   }}>
                     Out of Stock
                   </button>
+                )}
+
+                {/* ── Price Drop Alert ── */}
+                {user && user.role === 'customer' && (
+                  <div style={{
+                    marginTop: 16, padding: '14px 16px', borderRadius: 10,
+                    border: '1.5px solid var(--border)', background: 'var(--cream)',
+                  }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      🔔 Price Drop Alert
+                      {alertActive && (
+                        <span style={{
+                          fontSize: 10, fontWeight: 700, background: 'rgba(39,174,96,0.12)',
+                          color: '#27AE60', padding: '2px 8px', borderRadius: 999,
+                        }}>Active</span>
+                      )}
+                    </div>
+                    {alertActive ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 13, color: 'var(--muted)' }}>
+                          Notifying you at ${parseFloat(alertPrice).toFixed(2)} or below
+                        </span>
+                        <button
+                          onClick={handleAlertRemove}
+                          disabled={alertSaving}
+                          style={{
+                            marginLeft: 'auto', fontSize: 12, padding: '4px 10px',
+                            borderRadius: 6, border: '1px solid var(--border)',
+                            background: 'none', cursor: 'pointer', color: 'var(--muted)',
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          placeholder={`Notify me below $${activePrice.toFixed(2)}`}
+                          value={alertPrice}
+                          onChange={e => setAlertPrice(e.target.value)}
+                          style={{
+                            flex: 1, padding: '8px 10px', borderRadius: 7, fontSize: 13,
+                            border: '1.5px solid var(--border)', background: '#fff',
+                            fontFamily: 'inherit', outline: 'none',
+                          }}
+                        />
+                        <button
+                          onClick={handleAlertSave}
+                          disabled={alertSaving || !alertPrice}
+                          className="btn btn-primary"
+                          style={{ padding: '8px 14px', fontSize: 13, whiteSpace: 'nowrap' }}
+                        >
+                          {alertSaving ? '...' : 'Set Alert'}
+                        </button>
+                      </div>
+                    )}
+                    {alertMsg && (
+                      <p style={{ margin: '8px 0 0', fontSize: 12, color: alertMsg.includes('saved') ? '#27AE60' : 'var(--muted)' }}>
+                        {alertMsg}
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
             </div>

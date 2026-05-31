@@ -205,6 +205,59 @@ def send_order_status_update(order):
     _send(msg)
 
 
+# ── Price drop alert ──────────────────────────────────────────────────────────
+
+def send_price_alert(user, product, old_price):
+    """Notify a user that a product they set an alert for has dropped in price."""
+    name     = user.first_name or user.email.split('@')[0]
+    to_email = user.email
+    saving   = float(old_price) - float(product.price)
+
+    body = f"""
+<h2 style="margin:0 0 6px;font-size:24px;color:#1A1209;">Price Drop Alert!</h2>
+<p style="margin:0 0 24px;color:#666;font-size:14px;">
+  Hi {name}, a product on your watchlist just got cheaper.
+</p>
+
+<div style="background:#f5f0e8;border-radius:12px;padding:20px 24px;margin-bottom:24px;">
+  <div style="font-size:16px;font-weight:700;color:#1A1209;margin-bottom:12px;">{product.name}</div>
+  <div style="display:flex;gap:24px;align-items:center;">
+    <div>
+      <div style="font-size:11px;color:#999;font-weight:bold;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Was</div>
+      <div style="font-size:18px;color:#999;text-decoration:line-through;">${float(old_price):.2f}</div>
+    </div>
+    <div style="font-size:24px;color:#C9952A;">→</div>
+    <div>
+      <div style="font-size:11px;color:#999;font-weight:bold;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Now</div>
+      <div style="font-size:28px;font-weight:800;color:#C9952A;">${float(product.price):.2f}</div>
+    </div>
+    <div style="margin-left:auto;background:rgba(39,174,96,0.1);color:#27AE60;
+                padding:8px 14px;border-radius:8px;font-weight:700;font-size:14px;">
+      Save ${saving:.2f}
+    </div>
+  </div>
+</div>
+
+<a href="{settings.FRONTEND_URL}/product/{product.id}"
+   style="display:inline-block;background:#C9952A;color:#fff;padding:13px 28px;
+          border-radius:10px;text-decoration:none;font-weight:bold;font-size:14px;margin-bottom:20px;">
+  Shop Now &rarr;
+</a>
+
+<p style="font-size:12px;color:#aaa;margin:0;">
+  You set a price alert on this product. To remove alerts, visit your product page on ShopAI.
+</p>"""
+
+    msg = EmailMultiAlternatives(
+        subject    = f"Price Drop: {product.name} is now ${float(product.price):.2f}",
+        body       = f"Hi {name}, {product.name} dropped from ${float(old_price):.2f} to ${float(product.price):.2f}. Save ${saving:.2f}!",
+        from_email = settings.DEFAULT_FROM_EMAIL,
+        to         = [to_email],
+    )
+    msg.attach_alternative(_wrap(body), 'text/html')
+    _send(msg)
+
+
 # ── Password reset ────────────────────────────────────────────────────────────
 
 def send_password_reset(user, reset_link: str):
