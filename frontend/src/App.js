@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 import LandingPage from './pages/LandingPage';
@@ -17,7 +17,7 @@ import ChatbotWidget from './components/ChatbotWidget';
 
 import { setupAutoLogout } from "./utils/autoLogout";
 
-import { logoutUser, getWishlist, toggleWishlist } from './api/api';
+import { logoutUser, getWishlist, toggleWishlist, getCart, syncCart } from './api/api';
 
 import ProductDescription from "./components/ProductDescription";
 
@@ -31,6 +31,20 @@ function loadCart() {
   }
 }
 
+function serverItemToCart(item) {
+  return {
+    id:           item.product_id,
+    cartKey:      `${item.product_id}_${item.variant_id || 0}`,
+    name:         item.product_name,
+    price:        item.price,
+    qty:          item.quantity,
+    image:        item.product_image,
+    cat:          item.category_name,
+    variant_id:   item.variant_id   || null,
+    variant_name: item.variant_name || null,
+  };
+}
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -38,6 +52,7 @@ export default function App() {
   const [chatOpen, setChatOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
   const [wishlistIds, setWishlistIds] = useState(new Set());
+  const syncTimerRef = useRef(null);
 
   // Wrap setCart to also persist to localStorage
   const setCart = (updater) => {
@@ -58,7 +73,17 @@ export default function App() {
     const savedToken = localStorage.getItem('token');
 
     if (savedUser && savedToken) {
-      setUser(JSON.parse(savedUser));
+      const userData = JSON.parse(savedUser);
+      setUser(userData);
+      if (userData.role === 'customer') {
+        getCart()
+          .then(res => {
+            if (res.data.length > 0) {
+              setCartState(res.data.map(serverItemToCart));
+            }
+          })
+          .catch(() => {});
+      }
     }
 
     setLoading(false);
@@ -94,6 +119,21 @@ export default function App() {
   }, []);
 
 
+  // Debounced sync of cart to server whenever it changes
+  useEffect(() => {
+    if (!user || user.role !== 'customer') return;
+    clearTimeout(syncTimerRef.current);
+    syncTimerRef.current = setTimeout(() => {
+      const items = cart.map(item => ({
+        product_id: item.id,
+        variant_id: item.variant_id || null,
+        quantity:   item.qty,
+      }));
+      syncCart(items).catch(() => {});
+    }, 600);
+    return () => clearTimeout(syncTimerRef.current);
+  }, [cart, user]);
+
   // Load wishlist IDs whenever a customer logs in
   useEffect(() => {
     if (user?.role === 'customer') {
@@ -120,6 +160,15 @@ export default function App() {
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
+    if (userData.role === 'customer') {
+      getCart()
+        .then(res => {
+          if (res.data.length > 0) {
+            setCartState(res.data.map(serverItemToCart));
+          }
+        })
+        .catch(() => {});
+    }
   };
 
   const handleLogout = async () => {

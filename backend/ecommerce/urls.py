@@ -29,4 +29,5 @@ urlpatterns = [
     path('api/chatbot/',  include('chatbot.urls')),
     path('api/wishlist/', include('wishlist.urls')),
     path('api/alerts/',  include('alerts.urls')),
+    path('api/cart/',    include('cart.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

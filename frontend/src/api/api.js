@@ -118,6 +118,10 @@ export const getAlerts   = ()                       => API.get('alerts/');
 export const setAlert    = (productId, targetPrice) => API.post('alerts/', { product: productId, target_price: targetPrice });
 export const deleteAlert = (productId)              => API.delete(`alerts/${productId}/`);
 
+// ── Cart Persistence ──────────────────────────────────
+export const getCart  = ()      => API.get('cart/');
+export const syncCart = (items) => API.post('cart/sync/', items);
+
 // ── Chatbot ───────────────────────────────────────────
 export const chatbotSend = (data) => API.post('chatbot/', data);
 
