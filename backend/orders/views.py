@@ -11,8 +11,11 @@ from django.contrib.auth import get_user_model
 from django.http import FileResponse
 from datetime import timedelta
 import io
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 from .models import Order, OrderItem, PromoCode
 from .serializers import OrderSerializer, OrderItemSerializer, PlaceOrderSerializer, PromoCodeSerializer
+from .consumers import order_group_name
 from products.models import Product
 from emails import send_order_confirmation, send_order_status_update
 
@@ -181,6 +184,20 @@ def update_order_status(request, order_id):
     order.save()
 
     send_order_status_update(order)
+
+    # Push real-time update to the customer's WebSocket connection
+    try:
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            order_group_name(order.customer.email),
+            {
+                'type':     'order.status.update',
+                'order_id': order.id,
+                'status':   order.status,
+            },
+        )
+    except Exception:
+        pass  # WebSocket broadcast is best-effort; never block the HTTP response
 
     return Response(OrderSerializer(order).data)
 

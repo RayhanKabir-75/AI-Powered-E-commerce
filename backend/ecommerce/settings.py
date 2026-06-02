@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     'wishlist',
     'alerts',
     'cart',
+    'channels',
 ]
 
 MIDDLEWARE = [
@@ -181,3 +182,12 @@ DEFAULT_FROM_EMAIL = (
     or os.environ.get('EMAIL_HOST_USER')
     or 'ShopAI <noreply@shopai.com>'
 )
+
+
+# ── Django Channels ───────────────────────────────────────────────────────────
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+    },
+}
+ASGI_APPLICATION = 'ecommerce.asgi.application'

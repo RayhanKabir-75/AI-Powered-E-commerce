@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import API, { downloadInvoice } from '../api/api';
 
 const STATUS_COLOURS = {
@@ -9,10 +9,16 @@ const STATUS_COLOURS = {
   cancelled: { bg: 'rgba(192,57,43,0.12)',   color: '#C0392B' },
 };
 
+const WS_BASE = (process.env.REACT_APP_API_URL || 'http://localhost:8000/api/')
+  .replace(/^http/, 'ws')
+  .replace(/\/api\/?$/, '');
+
 export default function OrdersModal({ onClose }) {
   const [orders,  setOrders]  = useState([]);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState('');
+  const [liveIds, setLiveIds] = useState(new Set());
+  const wsRef = useRef(null);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -20,7 +26,6 @@ export default function OrdersModal({ onClose }) {
         const res = await API.get('orders/');
         setOrders(res.data.results ?? res.data);
       } catch (err) {
-        // If orders endpoint not built yet, show friendly placeholder
         if (err.response?.status === 404) {
           setOrders([]);
         } else {
@@ -31,6 +36,36 @@ export default function OrdersModal({ onClose }) {
       }
     };
     fetchOrders();
+  }, []);
+
+  // ── Real-time status updates via WebSocket ────────────────────────────────
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    const ws = new WebSocket(`${WS_BASE}/ws/orders/?token=${token}`);
+    wsRef.current = ws;
+
+    ws.onmessage = (e) => {
+      const { order_id, status } = JSON.parse(e.data);
+      setOrders(prev =>
+        prev.map(o => o.id === order_id ? { ...o, status } : o)
+      );
+      setLiveIds(prev => {
+        const next = new Set(prev);
+        next.add(order_id);
+        return next;
+      });
+      setTimeout(() => {
+        setLiveIds(prev => {
+          const next = new Set(prev);
+          next.delete(order_id);
+          return next;
+        });
+      }, 3000);
+    };
+
+    return () => ws.close();
   }, []);
 
   const formatDate = (dateStr) =>
@@ -83,16 +118,30 @@ export default function OrdersModal({ onClose }) {
           )}
 
           {!loading && orders.map(order => {
-            const style = STATUS_COLOURS[order.status] || STATUS_COLOURS.pending;
+            const style    = STATUS_COLOURS[order.status] || STATUS_COLOURS.pending;
+            const isLive   = liveIds.has(order.id);
             return (
               <div key={order.id} style={{
-                border: '1px solid var(--border)', borderRadius: 12,
+                border: `1px solid ${isLive ? 'var(--gold)' : 'var(--border)'}`,
+                borderRadius: 12,
                 padding: '16px', marginBottom: 12, background: 'var(--panel)',
+                transition: 'border-color 0.4s ease',
               }}>
                 {/* Order header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: 14 }}>Order #{order.id}</div>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>
+                      Order #{order.id}
+                      {isLive && (
+                        <span style={{
+                          marginLeft: 8, fontSize: 10, fontWeight: 700,
+                          color: 'var(--gold)', background: 'rgba(201,149,42,0.12)',
+                          padding: '2px 7px', borderRadius: 999,
+                        }}>
+                          ● LIVE
+                        </span>
+                      )}
+                    </div>
                     <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
                       {formatDate(order.created_at)}
                     </div>
@@ -102,6 +151,7 @@ export default function OrdersModal({ onClose }) {
                       padding: '4px 12px', borderRadius: 999,
                       fontSize: 12, fontWeight: 600, textTransform: 'capitalize',
                       background: style.bg, color: style.color,
+                      transition: 'all 0.3s ease',
                     }}>
                       {order.status}
                     </span>
