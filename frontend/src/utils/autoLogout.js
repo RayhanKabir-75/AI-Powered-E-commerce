@@ -5,7 +5,7 @@ const resetTimer = (logoutCallback) => {
 
   timeout = setTimeout(() => {
     logoutCallback();
-  }, 1 * 60 * 1000); // 15 minutes
+  }, 15 * 60 * 1000); // 15 minutes
 };
 
 export const setupAutoLogout = (logoutCallback) => {
