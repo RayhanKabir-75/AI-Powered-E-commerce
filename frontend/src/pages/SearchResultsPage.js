@@ -23,7 +23,7 @@ export default function SearchResultsPage({ cart, setCart, wishlistIds = new Set
   // ── Compare state ────────────────────────────────────────────────────────
   const { compareList, toggleCompare, removeFromCompare, clearCompare } = useCompare();
 
-  const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
+  const cartCount = cart.reduce((s, i) => s + (i.qty ?? i.quantity ?? 0), 0);
 
   const fetchResults = useCallback(async (q) => {
     setLoading(true);
@@ -51,8 +51,11 @@ export default function SearchResultsPage({ cart, setCart, wishlistIds = new Set
     if (e) e.stopPropagation();
     setCart(prev => {
       const existing = prev.find(i => i.id === p.id);
-      if (existing) return prev.map(i => i.id === p.id ? { ...i, quantity: i.quantity + 1 } : i);
-      return [...prev, { ...p, quantity: 1 }];
+      if (existing) {
+        const nextQty = Math.min((existing.qty ?? existing.quantity ?? 0) + 1, p.stock || (existing.qty ?? existing.quantity ?? 0) + 1);
+        return prev.map(i => i.id === p.id ? { ...i, qty: nextQty } : i);
+      }
+      return [...prev, { ...p, qty: 1 }];
     });
   };
 

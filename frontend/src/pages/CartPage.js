@@ -17,11 +17,14 @@ export default function CartPage({ cart, setCart, user, onLogout }) {
 
   const updateQty = (key, delta) => {
     setCart(prev =>
-      prev.map(item =>
-        getKey(item) === key
-          ? { ...item, qty: Math.max(1, item.qty + delta) }
-          : item
-      )
+      prev.map(item => {
+        if (getKey(item) !== key) return item;
+        const nextQty = Math.max(1, item.qty + delta);
+        return {
+          ...item,
+          qty: Math.min(nextQty, item.stock || nextQty),
+        };
+      })
     );
   };
 

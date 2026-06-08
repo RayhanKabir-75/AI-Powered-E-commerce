@@ -30,7 +30,11 @@ export default function SignupPage({ onLogin }) {
 
   // ── Load Google Identity Services script ──────────────────────────────────
   useEffect(() => {
-    if (document.getElementById('google-gsi-script')) return;
+    const existing = document.getElementById('google-gsi-script');
+    if (existing) {
+      if (window.google) setGoogleReady(true);
+      return;
+    }
     const script = document.createElement('script');
     script.id    = 'google-gsi-script';
     script.src   = 'https://accounts.google.com/gsi/client';
@@ -94,6 +98,7 @@ export default function SignupPage({ onLogin }) {
       return;
     }
 
+    window.google.accounts.id.cancel?.();
     window.google.accounts.id.initialize({
       client_id: GOOGLE_CLIENT_ID,
       callback: async (response) => {

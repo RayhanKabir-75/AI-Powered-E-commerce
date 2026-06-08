@@ -83,7 +83,10 @@ export default function HomePage({ user, onLogout, cart, setCart, wishlistIds = 
   const addToCart = (product) => {
     setCart(prev => {
       const existing = prev.find(i => i.id === product.id);
-      if (existing) return prev.map(i => i.id === product.id ? { ...i, qty: i.qty + 1 } : i);
+      if (existing) {
+        const nextQty = Math.min(existing.qty + 1, product.stock || existing.qty + 1);
+        return prev.map(i => i.id === product.id ? { ...i, qty: nextQty } : i);
+      }
       return [...prev, { ...product, qty: 1 }];
     });
   };
@@ -141,6 +144,18 @@ export default function HomePage({ user, onLogout, cart, setCart, wishlistIds = 
         </div>
 
         <div className="home-nav-right">
+          <button onClick={() => navigate('/about')} style={{
+            background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer',
+            fontSize: 14, padding: '8px 12px', marginRight: 8, transition: 'color 0.2s',
+          }}>
+            About
+          </button>
+          <button onClick={() => navigate('/contact')} style={{
+            background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer',
+            fontSize: 14, padding: '8px 12px', marginRight: 12, transition: 'color 0.2s',
+          }}>
+            Contact
+          </button>
           <button onClick={() => navigate('/cart')} style={{
             position: 'relative', background: 'none', border: '1.5px solid var(--border)',
             borderRadius: 999, padding: '6px 14px', cursor: 'pointer', display: 'flex',
