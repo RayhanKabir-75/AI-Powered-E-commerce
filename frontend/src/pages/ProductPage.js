@@ -155,10 +155,13 @@ export default function ProductPage({ user, cart, setCart, wishlistIds = new Set
 
   const addToCart = () => {
     const cartKey = `${product.id}_${selectedVariant?.id || 0}`;
+    const requestedQty = Math.min(qty, activeStock);
+
     setCart(prev => {
       const existing = prev.find(i => i.cartKey === cartKey);
       if (existing) {
-        return prev.map(i => i.cartKey === cartKey ? { ...i, qty: i.qty + qty } : i);
+        const nextQty = Math.min(existing.qty + requestedQty, activeStock);
+        return prev.map(i => i.cartKey === cartKey ? { ...i, qty: nextQty } : i);
       }
       return [...prev, {
         ...product,
@@ -166,7 +169,7 @@ export default function ProductPage({ user, cart, setCart, wishlistIds = new Set
         price:        activePrice,
         variant_id:   selectedVariant?.id   || null,
         variant_name: selectedVariant?.name || null,
-        qty,
+        qty:          requestedQty,
       }];
     });
     setAddedToCart(true);

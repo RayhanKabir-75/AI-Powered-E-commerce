@@ -2,6 +2,66 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { chatbotSend, getMediaUrl } from '../api/api';
 
+const CHAT_CONTENT_REGEX = /!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s]+)/g;
+
+function rewriteChatUrl(url, action) {
+  if (!url || !action) return url;
+  if (action.type === 'navigate_to_product' && url.includes('shopai.com')) {
+    return `/product/${action.product_id}`;
+  }
+  if (action.type === 'add_to_cart' && action.product?.id && url.includes('shopai.com')) {
+    return `/product/${action.product.id}`;
+  }
+  return url;
+}
+
+function parseChatContent(text, rewriteUrl) {
+  if (!text) return null;
+  const fragments = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = CHAT_CONTENT_REGEX.exec(text)) !== null) {
+    const [fullMatch, altText, imageUrl, linkUrl] = match;
+    if (match.index > lastIndex) {
+      fragments.push(text.slice(lastIndex, match.index));
+    }
+    if (imageUrl) {
+      fragments.push(
+        <img
+          key={`img-${match.index}`}
+          src={imageUrl}
+          alt={altText || 'chat image'}
+          style={{ maxWidth: '100%', borderRadius: 12, marginTop: 8 }}
+        />
+      );
+    } else if (linkUrl) {
+      const href = rewriteUrl ? rewriteUrl(linkUrl) : linkUrl;
+      fragments.push(
+        <a
+          key={`link-${match.index}`}
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          style={{ color: '#1a73e8', textDecoration: 'underline' }}
+        >
+          {href}
+        </a>
+      );
+    }
+    lastIndex = match.index + fullMatch.length;
+  }
+
+  if (lastIndex < text.length) {
+    fragments.push(text.slice(lastIndex));
+  }
+
+  return fragments.flatMap((fragment, index) => {
+    if (typeof fragment !== 'string') return fragment;
+    return fragment.split('\n').flatMap((line, lineIndex) => lineIndex === 0 ? [line] : [<br key={`br-${index}-${lineIndex}`} />, line]);
+  });
+}
+
 export default function ChatbotWidget({ open, onToggle, setCart }) {
   const navigate = useNavigate();
   const [messages, setMessages] = useState([
@@ -31,13 +91,16 @@ export default function ChatbotWidget({ open, onToggle, setCart }) {
       const res     = await chatbotSend({ message: text, history });
       const { reply, action } = res.data;
 
-      const toAdd = [{ role: 'assistant', content: reply }];
+      const toAdd = [{ role: 'assistant', content: reply, action }];
 
       if (action?.type === 'add_to_cart' && setCart) {
         const p = action.product;
         setCart(prev => {
           const existing = prev.find(i => i.cartKey === p.cartKey);
-          if (existing) return prev.map(i => i.cartKey === p.cartKey ? { ...i, qty: i.qty + 1 } : i);
+          if (existing) {
+            const targetQty = Math.min(existing.qty + 1, p.stock || existing.qty + 1);
+            return prev.map(i => i.cartKey === p.cartKey ? { ...i, qty: targetQty } : i);
+          }
           return [...prev, { ...p, qty: 1 }];
         });
         toAdd.push({ role: 'cart_added', product: p });
@@ -130,6 +193,24 @@ export default function ChatbotWidget({ open, onToggle, setCart }) {
                           </div>
                         </div>
                       </div>
+                      {p.id && (
+                        <button
+                          onClick={() => navigate(`/product/${p.id}`)}
+                          style={{
+                            marginTop: 10,
+                            width: '100%',
+                            background: '#fff',
+                            border: '1px solid rgba(0,0,0,0.08)',
+                            borderRadius: 10,
+                            padding: '8px 12px',
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          View product details
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -165,7 +246,7 @@ export default function ChatbotWidget({ open, onToggle, setCart }) {
                     <div className="chat-bot-avatar">🤖</div>
                   )}
                   <div className={`chat-bubble ${msg.role}`}>
-                    {msg.content}
+                    {parseChatContent(msg.content, msg.action ? (url) => rewriteChatUrl(url, msg.action) : undefined)}
                   </div>
                 </div>
               );

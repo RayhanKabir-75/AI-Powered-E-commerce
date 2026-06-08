@@ -13,6 +13,8 @@ import ResetPasswordPage from './pages/ResetPasswordPage';
 import ProductPage from './pages/ProductPage';
 import SearchResultsPage from './pages/SearchResultsPage';
 import WishlistPage from './pages/WishlistPage';
+import AboutPage from './pages/AboutPage';
+import ContactPage from './pages/ContactPage';
 import ChatbotWidget from './components/ChatbotWidget';
 
 import { setupAutoLogout } from "./utils/autoLogout";
@@ -338,6 +340,9 @@ export default function App() {
         />
 
         {/* Wishlist */}
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/contact" element={<ContactPage />} />
+
         <Route
           path="/wishlist"
           element={

@@ -33,7 +33,10 @@ export default function WishlistPage({ cart, setCart, wishlist, onToggle }) {
     e.stopPropagation();
     setCart(prev => {
       const existing = prev.find(i => i.id === product.id);
-      if (existing) return prev.map(i => i.id === product.id ? { ...i, qty: i.qty + 1 } : i);
+      if (existing) {
+        const nextQty = Math.min(existing.qty + 1, product.stock || existing.qty + 1);
+        return prev.map(i => i.id === product.id ? { ...i, qty: nextQty } : i);
+      }
       return [...prev, { ...product, qty: 1 }];
     });
   };

@@ -16,6 +16,8 @@ export default function LandingPage() {
           ShopAI
         </div>
         <div className="nav-actions">
+          <button className="btn btn-ghost" onClick={() => navigate('/about')}>About Us</button>
+          <button className="btn btn-ghost" onClick={() => navigate('/contact')}>Contact</button>
           <button className="btn btn-primary" onClick={() => navigate('/login')}>Log in</button>
         </div>
       </nav>
