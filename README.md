@@ -1,124 +1,352 @@
-# ShopAI — AI-Powered E-Commerce Platform
+<div align="center">
 
-A full-stack e-commerce web application built with **Django REST Framework** and **React**, featuring AI-powered product recommendations, a local LLM chatbot, AI product description generation, and a complete admin analytics dashboard.
+<h1>
+  <img src="https://readme-typing-svg.demolab.com?font=Playfair+Display&size=40&pause=1000&color=C9952A&center=true&vCenter=true&width=600&lines=ShopAI;AI-Powered+E-Commerce" alt="ShopAI" />
+</h1>
+
+<p align="center">
+  <strong>A production-grade full-stack e-commerce platform with on-device AI — no API keys required.</strong><br/>
+  Built with Django REST Framework, React 19, and a locally-running Llama 3.2 model via Ollama.
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Django-6.0-092E20?style=for-the-badge&logo=django&logoColor=white"/>
+  <img src="https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black"/>
+  <img src="https://img.shields.io/badge/MySQL-8.0-4479A1?style=for-the-badge&logo=mysql&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Ollama-Llama_3.2-F97316?style=for-the-badge"/>
+  <img src="https://img.shields.io/badge/WebSocket-Django_Channels-14B8A6?style=for-the-badge"/>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Role-Customer_|_Seller_|_Admin-C9952A?style=flat-square"/>
+  <img src="https://img.shields.io/badge/AI_Features-5-8B5CF6?style=flat-square"/>
+  <img src="https://img.shields.io/badge/REST_Endpoints-40+-3B82F6?style=flat-square"/>
+  <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square"/>
+</p>
+
+</div>
+
+---
+
+## What is ShopAI?
+
+ShopAI is a full-stack e-commerce web application that integrates **five on-device AI features** with a complete transactional e-commerce backend. Everything runs locally — no paid API keys, no data leaving your machine.
+
+Three distinct user roles (Customer, Seller, Admin) each get a fully tailored experience: customers shop with AI assistance, sellers manage inventory with AI-generated descriptions, and admins monitor the platform through an interactive analytics dashboard.
+
+**Key technical highlights:**
+- AI inference via **Ollama (Llama 3.2)** — runs fully on-device, free and private
+- **Real-time order tracking** via Django Channels WebSockets
+- **Atomic database transactions** — stock is always consistent, zero overselling
+- **Google OAuth** + DRF Token Authentication with role-based permissions
+- **PDF invoice generation** with ReportLab
+- **NLP sentiment analysis** on every product review
 
 ---
 
 ## Features
 
-### Customer
-- Browse and search a live product catalogue with category filters
-- AI-powered **"Recommended for You"** section personalised by browsing history and purchase behaviour
-- Floating AI chatbot that answers questions about orders, products, and best sellers using real database data
-- Add to cart, proceed to checkout, and complete payment with card validation and a live card preview
-- Track order status and review products
+<details open>
+<summary><strong>🛒 Customer</strong></summary>
 
-### Seller
-- Dedicated seller dashboard to add, edit, and delete products (with image upload and AI description generation)
-- View incoming orders containing their products
-- AI product description generator powered by a local Llama 3.2 model — no API key required
+| Feature | Description |
+|---|---|
+| Product Browsing | Search by name, filter by category and price range |
+| Product Comparison | Select 2+ products and compare side-by-side |
+| AI Recommendations | Personalised "Recommended For You" section based on browsing history |
+| Persistent Cart | Cart saved to localStorage, synced to server on login |
+| Wishlist | Save products for later, move directly to cart |
+| Price Drop Alerts | Set a target price — get notified when a product drops |
+| Checkout | Two-step flow: shipping address → card payment with live card preview |
+| Promo Codes | Apply discount codes at checkout with server-side validation |
+| Real-time Order Tracking | Order status updates pushed via WebSocket — no polling |
+| Cancel Orders | Cancel pending orders; stock automatically restored |
+| PDF Invoices | Download a branded PDF invoice for any order |
+| Reviews & Ratings | Submit 1–5 star reviews; vote on review helpfulness |
+| AI Chatbot | Floating assistant powered by Llama 3.2 — answers product/order questions and adds items to cart via intent detection |
 
-### Admin
-- Full analytics dashboard with KPI cards (revenue, orders, customers, products)
-- Interactive charts: revenue over time, order status breakdown, top products by revenue, revenue by category
-- Order management table with inline status updates and status filter
+</details>
 
-### AI (Local — No API Key Needed)
-- **Chatbot**: Answers customer questions using live order and product data as context
-- **Product Descriptions**: Generates compelling listing copy from product details
-- **Recommendations**: Tracks browsing history and purchase patterns to personalise the homepage
-- All AI features use **Ollama (Llama 3.2)** running locally — free, private, no internet required
+<details>
+<summary><strong>🏪 Seller</strong></summary>
+
+| Feature | Description |
+|---|---|
+| Product CRUD | Create, edit, and delete product listings |
+| Product Variants | Add size/colour/style variants with individual prices and stock |
+| Gallery Management | Upload multiple images, reorder them via drag-and-drop |
+| AI Description Generator | Enter product name + price → Ollama generates marketing copy |
+| Order Management | View all orders containing own products, update status |
+| Sales Analytics | Units sold, revenue trends, order insights |
+
+</details>
+
+<details>
+<summary><strong>📊 Admin</strong></summary>
+
+| Feature | Description |
+|---|---|
+| KPI Dashboard | Total revenue, orders, customers, products — all at a glance |
+| Revenue Chart | Daily revenue over the last 30 days (Recharts line chart) |
+| Order Status Breakdown | Pie chart showing pending / confirmed / shipped / delivered split |
+| Top Products | Bar chart of top 10 products by revenue |
+| Category Revenue | Bar chart of revenue broken down by product category |
+| Order Management | Full order table with status filter and inline status updates |
+| Promo Code Management | Create, edit, delete, and toggle promo codes with expiry and usage limits |
+
+</details>
+
+---
+
+## AI Features
+
+All five AI features run on **Ollama (Llama 3.2)** locally. If Ollama is offline, every feature degrades gracefully — the rest of the app continues working normally.
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    AI FEATURE OVERVIEW                  │
+├──────────────────────┬──────────────────────────────────┤
+│ 💬 Shopping Chatbot  │ Answers questions using live DB   │
+│                      │ context (orders + bestsellers).   │
+│                      │ Detects "add X to cart" intent    │
+│                      │ and executes cart actions.        │
+├──────────────────────┼──────────────────────────────────┤
+│ 🎯 Recommendations   │ Tracks product views per user.    │
+│                      │ Surfaces personalised products    │
+│                      │ on the homepage.                  │
+├──────────────────────┼──────────────────────────────────┤
+│ ✍️  Description Gen  │ Seller enters name + price →      │
+│                      │ Llama 3.2 writes the listing      │
+│                      │ description. Zero editing needed. │
+├──────────────────────┼──────────────────────────────────┤
+│ 🧠 NLP Sentiment     │ Every review is auto-classified   │
+│                      │ Positive / Neutral / Negative     │
+│                      │ on submission.                    │
+├──────────────────────┼──────────────────────────────────┤
+│ 📝 Review Summary    │ Ollama generates a one-paragraph  │
+│                      │ summary of all reviews per        │
+│                      │ product. Refreshes on each new    │
+│                      │ review.                           │
+└──────────────────────┴──────────────────────────────────┘
+```
 
 ---
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Backend | Python 3.11, Django 6, Django REST Framework |
-| Database | MySQL 8 |
-| Frontend | React 19, React Router v7 |
-| Charts | Recharts |
-| AI / LLM | Ollama (Llama 3.2) — runs locally |
-| Auth | DRF Token Authentication + CSRF |
-| Styling | Custom CSS (DM Sans + Playfair Display) |
+| Layer | Technology | Purpose |
+|---|---|---|
+| **Backend** | Python 3.11, Django 6, Django REST Framework | API, ORM, business logic |
+| **Database** | MySQL 8 | Relational data, atomic transactions |
+| **Frontend** | React 19, React Router v7 | Single-page application |
+| **Charts** | Recharts | Admin analytics visualisations |
+| **AI / LLM** | Ollama · Llama 3.2 | On-device inference — free, private |
+| **Real-time** | Django Channels, ASGI | WebSocket order status broadcasts |
+| **Auth** | DRF Token Auth + Google OAuth | Secure login with social option |
+| **PDF** | ReportLab | Branded invoice generation |
+| **Email** | SMTP / SendGrid | Order confirmations, password reset |
+| **Static Files** | WhiteNoise | Compressed static file serving |
+| **Styling** | Custom CSS — DM Sans + Playfair Display | Consistent dark/light theme |
 
 ---
 
-## Prerequisites
+## Architecture
 
-Install all of these before starting:
-
-| Tool | Version | Download |
-|---|---|---|
-| Python | 3.11+ | https://python.org/downloads |
-| Node.js | 18+ | https://nodejs.org |
-| MySQL | 8+ | https://dev.mysql.com/downloads |
-| Ollama | latest | https://ollama.com |
-| Git | any | https://git-scm.com |
-
-Verify everything is installed:
-```bash
-python3 --version
-node --version
-mysql --version
-ollama --version
-git --version
+```
+┌──────────────────────────────────────────────┐
+│               CLIENT (React 19)              │
+│  Router · Context API · LocalStorage Cart    │
+│  Recharts · Google OAuth · WebSocket Client  │
+└──────────────────┬───────────────────────────┘
+                   │ HTTP / REST  |  WebSocket
+┌──────────────────▼───────────────────────────┐
+│         API LAYER (Django REST Framework)    │
+│  Token Auth · CORS/CSRF · Throttling         │
+│  Permissions · Pagination · Serializers      │
+└──────┬──────────────────────────┬────────────┘
+       │ ORM + Atomic Transactions │ ASGI
+┌──────▼──────────┐     ┌─────────▼───────────┐
+│  BUSINESS LOGIC │     │  REAL-TIME LAYER    │
+│  users          │     │  Django Channels    │
+│  products       │     │  WebSocket Consumer │
+│  orders         │     └─────────────────────┘
+│  reviews        │
+│  cart           │     ┌─────────────────────┐
+│  wishlist       │     │    AI LAYER         │
+│  alerts         │◄────│  Ollama · Llama 3.2 │
+│  chatbot        │     │  NLP Sentiment      │
+│  product_ai     │     └─────────────────────┘
+└──────┬──────────┘
+       │ Django ORM
+┌──────▼──────────────────────────────────────┐
+│               DATA LAYER                    │
+│  MySQL 8 · WhiteNoise · Media · SMTP Email  │
+└─────────────────────────────────────────────┘
 ```
 
 ---
 
-## Setup Instructions
+## Project Structure
 
-### Step 1 — Clone the repository
+```
+ShopAI/
+├── backend/
+│   ├── ecommerce/           # Django project — settings, root URLs, ASGI
+│   ├── users/               # Custom User model (email PK), auth endpoints
+│   ├── products/            # Products, categories, variants, gallery, browsing history
+│   ├── orders/              # Orders, order items, promo codes, PDF invoices
+│   ├── reviews/             # Reviews, NLP sentiment, AI summaries, helpfulness votes
+│   ├── cart/                # Cart persistence and server sync
+│   ├── wishlist/            # Saved products per user
+│   ├── alerts/              # Price-drop alert management
+│   ├── chatbot/             # AI shopping assistant (Ollama + live DB context)
+│   ├── product_ai/          # AI product description generator
+│   └── requirements.txt
+│
+├── frontend/
+│   └── src/
+│       ├── api/api.js                  # Axios instance + all API calls
+│       ├── pages/
+│       │   ├── LandingPage.jsx         # Hero / entry point
+│       │   ├── HomePage.jsx            # Customer browse + recommendations
+│       │   ├── ProductPage.jsx         # Detail, gallery, variants, reviews
+│       │   ├── CartPage.jsx            # Cart management + promo codes
+│       │   ├── CheckoutPage.jsx        # Shipping form + card payment
+│       │   ├── WishlistPage.jsx        # Saved items
+│       │   ├── SearchResultsPage.jsx   # Search + comparison
+│       │   ├── SellerDashboard.jsx     # Seller product/order management
+│       │   ├── AdminDashboard.jsx      # Admin analytics + order mgmt
+│       │   ├── LoginPage.jsx
+│       │   └── SignupPage.jsx
+│       └── components/
+│           ├── ChatbotWidget.jsx       # Floating AI chat assistant
+│           ├── ReviewSection.jsx       # Reviews UI + AI summary
+│           ├── ProductComparison.jsx   # Side-by-side comparison
+│           ├── ProfileModal.jsx
+│           ├── OrdersModal.jsx
+│           └── AIDescriptionModal.jsx  # Seller description generator
+│
+└── README.md
+```
+
+---
+
+## API Reference
+
+<details>
+<summary><strong>Authentication — <code>/api/auth/</code></strong></summary>
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `POST` | `register/` | None | Create customer or seller account |
+| `POST` | `login/` | None | Returns DRF auth token |
+| `POST` | `google/` | None | Google OAuth sign-in |
+| `POST` | `logout/` | Token | Invalidate token |
+| `GET` | `profile/` | Token | View user profile |
+| `PATCH` | `profile/` | Token | Update profile fields |
+| `POST` | `password-reset/` | None | Send reset email |
+
+</details>
+
+<details>
+<summary><strong>Products — <code>/api/products/</code></strong></summary>
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/` | None | List products (search, category, price filter) |
+| `POST` | `/` | Seller | Create new product |
+| `GET/PATCH/DELETE` | `<id>/` | Mixed | Product CRUD |
+| `GET` | `categories/` | None | All categories |
+| `GET` | `recommended/` | Token | AI personalised recommendations |
+| `POST` | `<id>/view/` | Token | Log a product view |
+| `GET/POST` | `<id>/variants/` | Mixed | List or add variants |
+| `DELETE` | `<id>/variants/<vid>/` | Seller | Remove a variant |
+| `GET/POST` | `<id>/gallery/` | Mixed | Manage gallery images |
+| `POST` | `generate-description/` | Seller | AI description via Ollama |
+
+</details>
+
+<details>
+<summary><strong>Orders — <code>/api/orders/</code></strong></summary>
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/` | Token | Customer's own orders |
+| `POST` | `place/` | Token | Place order (atomic, validates stock) |
+| `GET` | `<id>/` | Token | Order detail |
+| `PATCH` | `<id>/status/` | Seller/Admin | Update order status |
+| `POST` | `<id>/cancel/` | Token | Cancel pending order (restores stock) |
+| `GET` | `<id>/invoice/` | Token | Download PDF invoice |
+| `GET` | `seller/` | Seller | Orders containing seller's products |
+| `GET` | `admin/stats/` | Admin | Full platform analytics |
+| `GET` | `admin/orders/` | Admin | All orders with optional status filter |
+| `POST` | `validate-promo/` | Token | Validate a promo code |
+| `GET/POST` | `admin/promos/` | Admin | Promo code management |
+
+</details>
+
+<details>
+<summary><strong>Reviews, Cart, Wishlist, Alerts, Chatbot</strong></summary>
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `api/reviews/` | None | Reviews for a product |
+| `POST` | `api/reviews/` | Token | Submit review (auto-runs NLP) |
+| `GET` | `api/reviews/summary/<id>/` | None | AI-generated review summary |
+| `POST` | `api/reviews/<id>/vote/` | Token | Toggle helpful vote |
+| `GET` | `api/cart/` | Token | Retrieve cart |
+| `POST` | `api/cart/sync/` | Token | Sync local cart to server |
+| `GET` | `api/wishlist/` | Token | List saved items |
+| `POST` | `api/wishlist/toggle/` | Token | Add or remove from wishlist |
+| `GET` | `api/alerts/` | Token | List price alerts |
+| `POST` | `api/alerts/` | Token | Create or update alert |
+| `DELETE` | `api/alerts/<product_id>/` | Token | Delete alert |
+| `POST` | `api/chatbot/` | Token | Send message to AI assistant |
+
+</details>
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+| Tool | Version |
+|---|---|
+| Python | 3.11+ |
+| Node.js | 18+ |
+| MySQL | 8+ |
+| Ollama | latest |
+| Git | any |
+
+### 1 — Clone the repository
 
 ```bash
 git clone https://github.com/RayhanKabir-75/AI-Powered-E-commerce.git
 cd AI-Powered-E-commerce
 ```
 
----
+### 2 — Create the MySQL database
 
-### Step 2 — Set up the MySQL database
-
-Log in to MySQL and create the database:
-```bash
-mysql -u root -p
-```
 ```sql
 CREATE DATABASE ecommerce_db;
 CREATE USER 'ecom_user'@'localhost' IDENTIFIED BY 'your_password';
 GRANT ALL PRIVILEGES ON ecommerce_db.* TO 'ecom_user'@'localhost';
 FLUSH PRIVILEGES;
-EXIT;
 ```
 
----
+### 3 — Backend
 
-### Step 3 — Backend setup
-
-**3A — Go into the backend folder and create a virtual environment:**
 ```bash
 cd backend
 python3 -m venv ../venv
-
-# Activate on Mac / Linux
-source ../venv/bin/activate
-
-# Activate on Windows
-..\venv\Scripts\activate
-```
-
-**3B — Install Python dependencies:**
-```bash
+source ../venv/bin/activate          # Windows: ..\venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-**3C — Create your `.env` file:**
-
-Create a file named `.env` inside the `backend/` folder with the following content:
+Create `backend/.env`:
 ```
-SECRET_KEY=any-long-random-string-you-make-up
 DB_NAME=ecommerce_db
 DB_USER=ecom_user
 DB_PASSWORD=your_password
@@ -126,176 +354,67 @@ DB_HOST=localhost
 DB_PORT=3306
 ```
 
-> The `.env` file is listed in `.gitignore` — never commit it. Each team member creates their own with their own database credentials.
-
-**3D — Apply database migrations:**
 ```bash
 python3 manage.py migrate
+python3 manage.py runserver          # → http://localhost:8000
 ```
 
-**3E — (Optional) Create a superuser for Django admin:**
-```bash
-python3 manage.py createsuperuser
-```
+### 4 — Frontend
 
-**3F — Start the backend server:**
-```bash
-python3 manage.py runserver
-```
-
-Backend is running at: **http://localhost:8000**
-
----
-
-### Step 4 — Frontend setup
-
-Open a **new terminal** (keep the backend running).
-
-**4A — Go into the frontend folder and install dependencies:**
 ```bash
 cd frontend
 npm install
+npm start                            # → http://localhost:3000
 ```
 
-**4B — Start the React development server:**
+### 5 — Ollama (AI features)
+
 ```bash
-npm start
+ollama pull llama3.2                 # one-time ~2 GB download
+ollama serve                         # keep running in a separate terminal
 ```
 
-Frontend is running at: **http://localhost:3000**
+> If Ollama is not running, all AI features fall back gracefully. The rest of the app is fully functional.
 
----
-
-### Step 5 — Set up Ollama (AI features)
-
-Ollama runs AI models locally on your machine. This powers the chatbot and product description generator.
-
-**5A — Pull the Llama 3.2 model (one-time download, ~2 GB):**
-```bash
-ollama pull llama3.2
-```
-
-**5B — Start the Ollama server (run in a separate terminal, keep it running):**
-```bash
-ollama serve
-```
-
-> If Ollama is not running, AI features fall back gracefully — the chatbot shows an offline message and the description generator uses a template. The rest of the app works normally.
-
----
-
-### Step 6 — Seed demo data (optional)
-
-To add categories and sample products for testing, log in to MySQL and run:
+### 6 — Seed categories (optional)
 
 ```sql
 USE ecommerce_db;
-
 INSERT INTO products_category (name) VALUES
   ('Electronics'), ('Accessories'), ('Footwear'),
-  ('Appliances'), ('Sports'), ('Home'), ('Bags'),
-  ('Clothing'), ('Other');
+  ('Appliances'), ('Sports'), ('Home'), ('Bags'), ('Clothing');
 ```
-
-Then create a seller account via the signup page and add products through the Seller Dashboard.
 
 ---
 
 ## User Roles
 
-| Role | Access | Default redirect after login |
+| Role | Login redirect | Key access |
 |---|---|---|
-| **Customer** | Homepage, cart, checkout, chatbot, order tracking | `/home` |
-| **Seller** | Seller dashboard (own products + incoming orders + AI description tool) | `/seller` |
-| **Admin** | Admin analytics dashboard, all orders | `/admin` |
+| **Customer** | `/home` | Browse, cart, checkout, chatbot, order tracking, wishlist |
+| **Seller** | `/seller` | Product management, gallery, AI descriptions, order fulfilment |
+| **Admin** | `/admin` | Analytics dashboard, all orders, promo code management |
 
-To set a user's role, update the `role` field in the `users_customuser` table in MySQL, or use the Django admin panel at **http://localhost:8000/admin**.
+Set a user's role via the Django admin panel at `http://localhost:8000/admin` or directly in MySQL.
 
 ---
 
-## Project Structure
+## Security
 
-```
-AI-Powered-E-commerce/
-├── backend/
-│   ├── ecommerce/          # Django project settings & root URLs
-│   ├── users/              # Custom user model, auth endpoints (login, signup, profile)
-│   ├── products/           # Product & category models, browsing history, recommendations
-│   ├── orders/             # Order models, place/cancel/status endpoints, admin stats
-│   ├── product_ai/         # AI product description generator (Ollama)
-│   ├── chatbot/            # AI shopping assistant (Ollama + live DB context)
-│   ├── reviews/            # Product reviews and AI review summaries
-│   └── requirements.txt
-│
-├── frontend/
-│   └── src/
-│       ├── api/api.js      # Axios instance + all API call functions
-│       ├── pages/
-│       │   ├── HomePage.js         # Customer homepage with recommendations
-│       │   ├── SellerDashboard.js  # Seller product & order management
-│       │   ├── AdminDashboard.js   # Admin charts & order management
-│       │   ├── CartPage.js         # Shopping cart
-│       │   ├── CheckoutPage.js     # Payment form & order placement
-│       │   ├── LoginPage.js
-│       │   ├── SignupPage.js
-│       │   └── auth.css            # Global stylesheet
-│       └── components/
-│           ├── ChatbotWidget.js    # Floating AI chat assistant
-│           ├── ReviewSection.js    # Product reviews UI
-│           ├── ProfileModal.js
-│           ├── OrdersModal.js
-│           └── AIDescriptionModal.js
-│
-└── README.md
-```
+- **DRF Token Authentication** on all protected endpoints
+- **Google OAuth** via `tokeninfo` — raw passwords never stored for social accounts
+- **CSRF protection** with trusted origins; `SameSite` and `Secure` cookie flags
+- **Role-based permissions** enforced at the view level (Customer / Seller / Admin)
+- **Rate throttling** — Anonymous: 200/h · Authenticated: 1000/h · Login: 10/min · Orders: 30/h
+- **Atomic DB transactions** on order placement and cancellation — no partial writes, no overselling
+- **Auto-logout** after 15 minutes of inactivity (frontend)
+- **Django password validators** — length, similarity, common-password checks
 
 ---
 
-## API Endpoints
+## Running the Full Stack
 
-### Auth — `/api/auth/`
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `register/` | Create a new account |
-| POST | `login/` | Log in, returns auth token |
-| POST | `logout/` | Invalidate token |
-| GET/PATCH | `profile/` | View or update profile |
-| POST | `password-reset/` | Send reset email |
-
-### Products — `/api/products/`
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `` | List all products (with search & filter) |
-| POST | `` | Create product (seller only) |
-| GET/PATCH/DELETE | `<id>/` | Retrieve, update, or delete a product |
-| GET | `categories/` | List all categories |
-| GET | `recommended/` | Personalised product recommendations |
-| POST | `<id>/view/` | Track a product view (browsing history) |
-| POST | `generate-description/` | AI product description via Ollama |
-
-### Orders — `/api/orders/`
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `` | Customer's own orders |
-| POST | `place/` | Place a new order |
-| GET | `<id>/` | Single order detail |
-| PATCH | `<id>/status/` | Update order status (seller/admin) |
-| POST | `<id>/cancel/` | Cancel a pending order |
-| GET | `seller/` | Orders containing seller's products |
-| GET | `admin/stats/` | Full platform analytics (admin only) |
-| GET | `admin/orders/` | All orders with optional status filter (admin only) |
-
-### Other
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `api/chatbot/` | Send a message to the AI assistant |
-| GET/POST | `api/products/<id>/reviews/` | Get or submit a product review |
-
----
-
-## Running the Full App
-
-You need **three terminals** running simultaneously:
+You need three terminals:
 
 ```bash
 # Terminal 1 — Ollama AI server
@@ -308,4 +427,10 @@ cd backend && source ../venv/bin/activate && python3 manage.py runserver
 cd frontend && npm start
 ```
 
-Then open **http://localhost:3000** in your browser.
+Open **http://localhost:3000**
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE) for details.
